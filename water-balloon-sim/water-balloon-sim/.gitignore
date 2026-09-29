@@ -1,0 +1,10 @@
+# local renders / screenshots from tools/shoot.py
+shots/
+r*/
+*.png
+*.jpg
+# python / node clutter
+__pycache__/
+node_modules/
+*.log
+.DS_Store
