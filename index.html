@@ -1,0 +1,2403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Water balloon ballistics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chivo:wght@300;400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --panel: rgba(24,28,33,.78);
+  --panel-solid:#1b1f24;
+  --ink:#e9edf0;
+  --muted:#96a2ab;
+  --line:rgba(233,237,240,.12);
+  --brass:#caa45a;
+  --brass-ink:#1c1609;
+  --track:rgba(233,237,240,.18);
+  --stage:#07080a;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --panel: rgba(236,238,240,.86);
+    --panel-solid:#eceef0;
+    --ink:#1b2126;
+    --muted:#56626b;
+    --line:rgba(27,33,38,.14);
+    --brass:#8f6a22;
+    --brass-ink:#fffaf0;
+    --track:rgba(27,33,38,.2);
+  }
+}
+:root[data-theme="dark"]{
+  --panel: rgba(24,28,33,.78); --panel-solid:#1b1f24; --ink:#e9edf0; --muted:#96a2ab; --line:rgba(233,237,240,.12);
+  --brass:#caa45a; --brass-ink:#1c1609; --track:rgba(233,237,240,.18);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+html,body{margin:0;height:100%;background:var(--stage);color:var(--ink);font-family:"Chivo",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:15px;line-height:1.45;overflow:hidden}
+.app{position:relative;height:100%;display:grid;grid-template-columns:1fr 316px}
+.stage{position:relative;min-width:0;min-height:0;touch-action:none;background:#050607}
+canvas#view{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab}
+canvas#view.dragging{cursor:grabbing}
+.title{position:absolute;left:22px;top:18px;pointer-events:none;max-width:min(560px,70%)}
+.title h1{margin:0;font-weight:300;font-size:26px;letter-spacing:-.01em;line-height:1.1;color:#f1f3f4;text-shadow:0 1px 12px rgba(0,0,0,.6)}
+.clock{margin-top:8px;display:flex;gap:18px;align-items:baseline;font-variant-numeric:tabular-nums;color:#f1f3f4;text-shadow:0 1px 10px rgba(0,0,0,.7)}
+.clock .t{font-size:40px;font-weight:800;letter-spacing:-.02em}
+.clock .t small{font-size:17px;font-weight:400;margin-left:4px;color:#c9d0d5}
+.clock .rate{font-size:14px;color:#c9d0d5}
+.phase{margin-top:2px;font-size:14px;color:#c9d0d5;text-shadow:0 1px 10px rgba(0,0,0,.7)}
+.transport{position:absolute;left:14px;right:14px;bottom:14px;display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px}
+.btn{appearance:none;border:1px solid var(--line);background:transparent;color:var(--ink);font:inherit;font-size:14px;height:36px;min-width:36px;padding:0 12px;border-radius:9px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--brass);color:var(--brass-ink);border-color:var(--brass);font-weight:600;min-width:86px}
+.btn:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.scrub{flex:1;min-width:80px;display:flex;flex-direction:column;gap:2px}
+.scrub .ticks{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:transparent;margin:0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:3px;background:var(--track);border-radius:3px}
+input[type=range]::-moz-range-track{height:3px;background:var(--track);border-radius:3px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--brass);margin-top:-6px;border:2px solid var(--panel-solid)}
+input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--brass);border:2px solid var(--panel-solid)}
+.panel{background:var(--panel-solid);border-left:1px solid var(--line);overflow-y:auto;padding:18px 18px 28px}
+.panel h2{font-size:13px;font-weight:600;color:var(--muted);margin:22px 0 6px;letter-spacing:.01em}
+.panel h2:first-child{margin-top:0}
+.row{display:grid;grid-template-columns:1fr auto;align-items:center;column-gap:10px;margin:8px 0 2px}
+.row label{font-size:14px}
+.row output{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.row input[type=range]{grid-column:1 / -1}
+.swatches{display:flex;gap:8px;margin:10px 0 4px}
+.swatch{width:30px;height:30px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;box-shadow:inset 0 -6px 10px rgba(0,0,0,.25),inset 0 4px 8px rgba(255,255,255,.25)}
+.swatch[aria-pressed="true"]{border-color:var(--ink)}
+.views{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.check{display:flex;gap:8px;align-items:center;font-size:14px;margin:10px 0 2px;cursor:pointer}
+.check input{accent-color:var(--brass);width:16px;height:16px}
+.hint{font-size:12.5px;color:var(--muted);margin:14px 0 0;line-height:1.5}
+.stats{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:14px}
+.settings-toggle{display:none}
+.err{position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:30px;text-align:center;color:#e9edf0}
+.busy{position:absolute;right:18px;top:18px;font-size:13px;color:#d6dcdf;background:rgba(0,0,0,.45);padding:6px 10px;border-radius:8px;display:none}
+@media (max-width: 820px){
+  .app{grid-template-columns:1fr}
+  .panel{position:absolute;left:0;right:0;bottom:0;max-height:62%;z-index:5;border-left:0;border-top:1px solid var(--line);border-radius:16px 16px 0 0;transform:translateY(105%);transition:transform .25s ease;padding-bottom:calc(28px + env(safe-area-inset-bottom,0px))}
+  .panel.open{transform:none}
+  .settings-toggle{display:inline-flex}
+  .title h1{font-size:19px}
+  .clock .t{font-size:30px}
+  .transport{flex-wrap:wrap;left:8px;right:8px;bottom:8px}
+  .scrub{order:5;flex-basis:100%}
+  .hide-sm{display:none}
+}
+@media (prefers-reduced-motion: reduce){ .panel{transition:none} }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage" id="stage">
+    <canvas id="view" aria-label="3D view of the simulation. Drag to orbit, scroll to zoom, right-drag to pan."></canvas>
+    <div class="title">
+      <h1 id="headline">Water balloon, 9 mm round at 360 m/s</h1>
+      <div class="clock"><span class="t" id="clock">−0.37<small>ms</small></span><span class="rate" id="rate">2 400× slower</span></div>
+      <div class="phase" id="phase">Bullet approaching</div>
+    </div>
+    <div class="busy" id="busy">Simulating…</div>
+    <div class="transport">
+      <button class="btn primary" id="play" aria-label="Pause"><svg viewBox="0 0 16 16" id="playIcon"><rect x="3" y="2" width="3.5" height="12"/><rect x="9.5" y="2" width="3.5" height="12"/></svg><span id="playText">Pause</span></button>
+      <button class="btn" id="step" title="Step forward one frame (→)" aria-label="Step forward"><svg viewBox="0 0 16 16"><path d="M3 2l8 6-8 6z"/><rect x="12" y="2" width="2" height="12"/></svg></button>
+      <button class="btn" id="restart" title="Restart (R)" aria-label="Restart"><svg viewBox="0 0 16 16"><path d="M8 2.5a5.5 5.5 0 1 1-5.2 3.7l1.7.6A3.7 3.7 0 1 0 8 4.3V6.5L4.5 3.5 8 0.5z"/></svg></button>
+      <div class="scrub">
+        <input type="range" id="scrub" min="0" max="1000" value="0" step="1" aria-label="Timeline">
+        <div class="ticks"><span>shot</span><span id="tEndLabel">0.9 s</span></div>
+      </div>
+      <button class="btn settings-toggle" id="settingsBtn" aria-expanded="false" aria-controls="panel">Settings</button>
+    </div>
+    <div class="err" id="err"></div>
+  </div>
+
+  <aside class="panel" id="panel" aria-label="Simulation settings">
+    <h2>Shot</h2>
+    <div class="row"><label for="speed">Bullet speed</label><output id="speedO"></output><input type="range" id="speed" min="120" max="1000" step="10" value="360"></div>
+    <div class="row"><label for="caliber">Caliber</label><output id="caliberO"></output><input type="range" id="caliber" min="4.5" max="12.7" step="0.1" value="9"></div>
+    <div class="row"><label for="offset">Impact height</label><output id="offsetO"></output><input type="range" id="offset" min="-0.7" max="0.7" step="0.05" value="0"></div>
+    <div class="row"><label for="energy">Drag in water</label><output id="energyO"></output><input type="range" id="energy" min="0.1" max="2" step="0.05" value="1"></div>
+
+    <h2>Balloon</h2>
+    <div class="row"><label for="radius">Diameter</label><output id="radiusO"></output><input type="range" id="radius" min="0.05" max="0.14" step="0.005" value="0.08"></div>
+    <div class="row"><label for="height">Hanging height</label><output id="heightO"></output><input type="range" id="height" min="0.4" max="2" step="0.05" value="1"></div>
+    <div class="row"><label for="snap">Rubber snap speed</label><output id="snapO"></output><input type="range" id="snap" min="6" max="80" step="1" value="30"></div>
+    <div class="swatches" role="group" aria-label="Balloon color" id="swatches"></div>
+
+    <h2>Physics</h2>
+    <div class="row"><label for="gravity">Gravity</label><output id="gravityO"></output><input type="range" id="gravity" min="0" max="25" step="0.01" value="9.81"></div>
+    <div class="row"><label for="cavity">Cavity collapse</label><output id="cavityO"></output><input type="range" id="cavity" min="0" max="1" step="0.05" value="0.5"></div>
+    <div class="row"><label for="mist">Spray and mist</label><output id="mistO"></output><input type="range" id="mist" min="0" max="2" step="0.05" value="1"></div>
+    <div class="row"><label for="count">Water particles</label><output id="countO"></output><input type="range" id="count" min="1500" max="12000" step="100" value="6000"></div>
+
+    <h2>Light and camera</h2>
+    <div class="row"><label for="laz">Light direction</label><output id="lazO"></output><input type="range" id="laz" min="-180" max="180" step="1" value="-55"></div>
+    <div class="row"><label for="lel">Light height</label><output id="lelO"></output><input type="range" id="lel" min="5" max="85" step="1" value="38"></div>
+    <div class="row"><label for="lint">Light intensity</label><output id="lintO"></output><input type="range" id="lint" min="0.2" max="3" step="0.05" value="1"></div>
+    <div class="row"><label for="expo">Exposure</label><output id="expoO"></output><input type="range" id="expo" min="0.3" max="3" step="0.05" value="1.1"></div>
+    <div class="row"><label for="scale">Render resolution</label><output id="scaleO"></output><input type="range" id="scale" min="0.3" max="1" step="0.05" value="0.7"></div>
+    <div class="views">
+      <button class="btn" data-view="side">Side</button>
+      <button class="btn" data-view="barrel">Down the barrel</button>
+      <button class="btn" data-view="above">Above</button>
+      <button class="btn" data-view="floor">Floor</button>
+    </div>
+    <label class="check"><input type="checkbox" id="follow" checked> Follow the water</label>
+
+    <h2>Playback</h2>
+    <div class="row"><label for="slow">Slow motion at impact</label><output id="slowO"></output><input type="range" id="slow" min="1.3" max="4.3" step="0.05" value="3.38"></div>
+    <label class="check"><input type="checkbox" id="ramp" checked> Speed ramp after impact</label>
+    <p class="hint">Drag to orbit, scroll or pinch to zoom, right-drag or shift-drag to pan. Space pauses, → steps one frame, R restarts.</p>
+    <div class="stats" id="stats"></div>
+  </aside>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Water balloon ballistics simulation
+// Position-based "double density relaxation" fluid (Clavet et al. 2005),
+// latex membrane with propagating tear, hydrodynamic-ram energy deposition,
+// secondary spray + mist particles, ground wetting.  Units: metres, seconds.
+// ---------------------------------------------------------------------------
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const RHO_W = 1000, RHO_AIR = 1.2;
+const WET_RES = 256, WET_EXT = 1.6; // wetness map covers [-EXT, EXT]^2 on the ground
+const FX_CAP = 14000;
+const P_ATM = 101325;
+const DT_REF = 4e-4;   // step size at which the relaxation stiffness was tuned
+const V_JET = 18;     // m/s: faster fluid atomises into spray
+
+class BalloonSim {
+  constructor(params) { this.reset(params); }
+
+  reset(params) {
+    const p = (this.p = Object.assign({}, params));
+    this.rng = mulberry32(p.seed || 1337);
+    const R = (this.R = p.radius);
+    this.ry = 0.95;                         // slight vertical squash of a hanging balloon
+    this.C = [0, p.height, 0];
+    const V = (4 / 3) * Math.PI * R * R * R * this.ry;
+    const s = (this.s = Math.cbrt(V / p.count));
+    this.h = 1.9 * s;
+    // resolution-independent material: the relaxation displacement scales with h, so the stiffness
+    // (sound speed) and the XSPH damping (kinematic viscosity ~ c h^2/dt) are normalised to a
+    // reference spacing; the finer the particles, the more they need to reach the same physics
+    const S_REF = 0.0086, rr = S_REF / s;
+    this.resK = Math.min(2.2, rr * rr);
+    this.resV = Math.min(5.0, Math.pow(rr, 6.5));
+    this.rp = 0.45 * s;                     // collision radius vs ground
+
+    // --- fill the balloon with a jittered lattice --------------------------------
+    const pts = [];
+    const inset = 1 - (0.62 * s) / R;
+    const n = Math.ceil(R / s) + 1;
+    for (let i = -n; i <= n; i++)
+      for (let j = -n; j <= n; j++)
+        for (let k = -n; k <= n; k++) {
+          const x = (i + (j & 1) * 0.5) * s, y = j * s * 0.866, z = (k + (i & 1) * 0.5) * s;
+          const q = Math.hypot(x / R, y / (R * this.ry), z / R);
+          if (q < inset) pts.push(x, y, z);
+        }
+    const N = (this.N = pts.length / 3);
+    this.pos = new Float32Array(N * 3);
+    this.prev = new Float32Array(N * 3);
+    this.vel = new Float32Array(N * 3);
+    this.alive = new Uint8Array(N).fill(1);
+    this.nb = new Uint16Array(N);
+    this.nbSmooth = new Float32Array(N);
+    this.groundT = new Float32Array(N);
+    this.foam = new Float32Array(N);   // entrained micro-bubbles (0..1): cavity collapse, floor impact
+    this.rho = new Float32Array(N);
+    this.P = new Float32Array(N);
+    this.PN = new Float32Array(N);
+    this.dx = new Float32Array(N * 3);
+    this.dv = new Float32Array(N * 3);
+    for (let i = 0; i < N; i++) {
+      this.pos[i * 3] = pts[i * 3] + this.C[0] + (this.rng() - 0.5) * 0.5 * s;
+      this.pos[i * 3 + 1] = pts[i * 3 + 1] + this.C[1] + (this.rng() - 0.5) * 0.5 * s;
+      this.pos[i * 3 + 2] = pts[i * 3 + 2] + this.C[2] + (this.rng() - 0.5) * 0.5 * s;
+    }
+    // neighbour structures
+    this.TABLE = 1 << 15;
+    this.cellStart = new Int32Array(this.TABLE + 1);
+    this.cellIdx = new Int32Array(N);
+    this.sorted = new Int32Array(N);
+    this.pairCap = N * 45;
+    this.pa = new Int32Array(this.pairCap);
+    this.pb = new Int32Array(this.pairCap);
+    this.pq = new Float32Array(this.pairCap);
+    this.npairs = 0;
+
+    // --- bullet --------------------------------------------------------------------
+    const cal = p.caliber * 1e-3;
+    this.bullet = {
+      r: cal / 2,
+      len: cal * 3.6,
+      mass: 0.0097 * Math.pow(p.caliber / 7.62, 3),
+      y: this.C[1] + p.offset * R * this.ry * 0.85,
+      z: 0,
+      x: this.C[0] - R - 0.3,
+      v: p.speed,
+      v0: p.speed,
+      inWater: false,
+    };
+    const b = this.bullet;
+    const dy = (b.y - this.C[1]) / (R * this.ry);
+    const half = R * Math.sqrt(Math.max(0, 1 - dy * dy));
+    this.xIn = this.C[0] - half;
+    this.xOut = this.C[0] + half;
+    this.tImpact = (this.xIn - b.x) / b.v;
+    const len = (x) => { const d = [x - this.C[0], b.y - this.C[1], b.z - this.C[2]]; const l = Math.hypot(...d); return d.map((v) => v / l); };
+    this.e1 = len(this.xIn);
+    this.e2 = len(this.xOut);
+
+    // --- membrane ----------------------------------------------------------------
+    this.mem = { cavClosed: false, tIn: -1, tOut: -1, th1: 0, th2: 0, alpha: 4, gone: false, tGone: -1 };
+
+    // --- secondary particles --------------------------------------------------------
+    this.fx = {
+      n: 0, head: 0,
+      pos: new Float32Array(FX_CAP * 3), vel: new Float32Array(FX_CAP * 3),
+      age: new Float32Array(FX_CAP), life: new Float32Array(FX_CAP),
+      size: new Float32Array(FX_CAP), type: new Uint8Array(FX_CAP), alive: new Uint8Array(FX_CAP),
+    };
+    this.wet = new Float32Array(WET_RES * WET_RES);
+    this.wetDirty = true;
+
+    this.t = 0;
+    this.vmaxBulk = 0;
+    this.steps = 0;
+    this.version = 0;
+
+    // --- settle: find rest density, relax lattice inside the membrane --------------
+    this.buildPairs();
+    this.computeDensity();
+    let acc = 0, cnt = 0;
+    for (let i = 0; i < N; i++) if (this.nb[i] >= 16) { acc += this.rho[i]; cnt++; }
+    this.rho0 = cnt ? acc / cnt : 3;
+    for (let it = 0; it < 30; it++) {
+      this.prev.set(this.pos);
+      this.buildPairs();
+      this.relax(1, DT_REF);
+      this.constrain(DT_REF);
+    }
+    this.vel.fill(0);
+    this.buildPairs();
+    // re-measure rest density on the settled packing so the fluid starts in equilibrium
+    this.relaxDensityOnly();
+    let mx = 0; for (let i = 0; i < N; i++) mx = Math.max(mx, this.nb[i]);
+    acc = 0; cnt = 0;
+    for (let i = 0; i < N; i++) if (this.nb[i] >= 0.85 * mx) { acc += this.rho[i]; cnt++; }
+    if (cnt) this.rho0 = acc / cnt;
+    // pre-roll with gravity so the hanging balloon starts at rest in equilibrium
+    const g0 = p.gravity, dt0 = DT_REF;
+    for (let it = 0; it < 70; it++) {
+      for (let i = 0; i < N; i++) this.vel[i * 3 + 1] -= g0 * dt0;
+      this.prev.set(this.pos);
+      for (let i = 0; i < N * 3; i++) this.pos[i] += this.vel[i] * dt0;
+      this.buildPairs();
+      this.relax(1, dt0);
+      this.constrain(dt0);
+      for (let i = 0; i < N * 3; i++) this.vel[i] = (this.pos[i] - this.prev[i]) / dt0 * 0.6;
+    }
+    this.vel.fill(0);
+    this.buildPairs();
+    for (let i = 0; i < N; i++) this.nbSmooth[i] = this.nb[i];
+  }
+
+  // ---- membrane geometry ------------------------------------------------------------
+  angTo(dx, dy, dz, e) { return Math.acos(Math.max(-1, Math.min(1, dx * e[0] + dy * e[1] + dz * e[2]))); }
+  memIntact(dx, dy, dz) { // unit direction from centre
+    const m = this.mem;
+    if (m.gone) return false;
+    if (m.tIn >= 0 && this.angTo(dx, dy, dz, this.e1) < m.th1) return false;
+    if (m.tOut >= 0 && this.angTo(dx, dy, dz, this.e2) < m.th2) return false;
+    if (Math.acos(Math.max(-1, Math.min(1, dy))) > m.alpha) return false;
+    return true;
+  }
+
+  // ---- neighbour search -------------------------------------------------------------------
+  buildPairs() {
+    const { N, pos, alive, TABLE, cellStart, cellIdx, sorted } = this;
+    // Verlet neighbour list: candidates are gathered within h*(1+SKIN) and reused until some
+    // particle has moved more than half the skin; each step only refreshes distances
+    const SKIN = 0;   // measured: fast spray particles force a rebuild nearly every step, so lists are rebuilt each step
+    if (SKIN > 0 && this.vpos && !this.pairsDirty) {
+      const vp = this.vpos, lim2 = (0.5 * SKIN * this.h) ** 2;
+      let ok = true;
+      for (let i = 0; i < N; i++) {
+        if (!alive[i]) continue;
+        const dx = pos[i * 3] - vp[i * 3], dy = pos[i * 3 + 1] - vp[i * 3 + 1], dz = pos[i * 3 + 2] - vp[i * 3 + 2];
+        if (dx * dx + dy * dy + dz * dz > lim2) { ok = false; break; }
+      }
+      if (ok) { this.refreshPairs(); return; }
+    }
+    this.pairsDirty = false;
+    if (SKIN > 0) { this.vpos = this.vpos && this.vpos.length === pos.length ? this.vpos : new Float32Array(pos.length); this.vpos.set(pos); }
+    this.rebuilds = (this.rebuilds || 0) + 1;
+    const inv = 1 / (this.h * (1 + SKIN));
+    cellStart.fill(0);
+    const hash = (x, y, z) => ((Math.imul(x, 92837111) ^ Math.imul(y, 689287499) ^ Math.imul(z, 283923481)) >>> 0) & (TABLE - 1);
+    for (let i = 0; i < N; i++) {
+      if (!alive[i]) { cellIdx[i] = -1; continue; }
+      const c = hash(Math.floor(pos[i * 3] * inv), Math.floor(pos[i * 3 + 1] * inv), Math.floor(pos[i * 3 + 2] * inv));
+      cellIdx[i] = c; cellStart[c + 1]++;
+    }
+    for (let c = 0; c < TABLE; c++) cellStart[c + 1] += cellStart[c];
+    const fill = this._fill || (this._fill = new Int32Array(TABLE));
+    fill.set(cellStart.subarray(0, TABLE));
+    for (let i = 0; i < N; i++) if (cellIdx[i] >= 0) sorted[fill[cellIdx[i]]++] = i;
+
+    const h2 = (this.h * (1 + SKIN)) ** 2, hq2 = this.h * this.h;
+    let np = 0;
+    const { pa, pb, pq, nb } = this;
+    nb.fill(0);
+    // half-shell stencil: own cell (j > i) + 13 forward cells, visited in spatially sorted order
+    const OFF = this._off || (this._off = (() => {
+      const o = [];
+      for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) for (let oz = -1; oz <= 1; oz++)
+        if (ox > 0 || (ox === 0 && oy > 0) || (ox === 0 && oy === 0 && oz > 0)) o.push(ox, oy, oz);
+      return o;
+    })());
+    const hh = this.h, cap = this.pairCap;
+    for (let si = 0; si < N; si++) {
+      const i = sorted[si];
+      if (si >= cellStart[TABLE]) break;
+      const xi = pos[i * 3], yi = pos[i * 3 + 1], zi = pos[i * 3 + 2];
+      const cx = Math.floor(xi * inv), cy = Math.floor(yi * inv), cz = Math.floor(zi * inv);
+      const c0 = cellIdx[i];
+      for (let k = cellStart[c0], e = cellStart[c0 + 1]; k < e; k++) {
+        const j = sorted[k];
+        if (j <= i) continue;
+        const dx = pos[j * 3] - xi, dy = pos[j * 3 + 1] - yi, dz = pos[j * 3 + 2] - zi;
+        const d2 = dx * dx + dy * dy + dz * dz;
+        if (d2 < h2 && np < cap) { pa[np] = i; pb[np] = j; pq[np] = Math.sqrt(d2) / hh; np++; if (d2 < hq2) { nb[i]++; nb[j]++; } }
+      }
+      for (let t = 0; t < 39; t += 3) {
+        const c = hash(cx + OFF[t], cy + OFF[t + 1], cz + OFF[t + 2]);
+        if (c === c0) continue;
+        for (let k = cellStart[c], e = cellStart[c + 1]; k < e; k++) {
+          const j = sorted[k];
+          const dx = pos[j * 3] - xi, dy = pos[j * 3 + 1] - yi, dz = pos[j * 3 + 2] - zi;
+          const d2 = dx * dx + dy * dy + dz * dz;
+          if (d2 < h2 && np < cap) { pa[np] = i; pb[np] = j; pq[np] = Math.sqrt(d2) / hh; np++; if (d2 < hq2) { nb[i]++; nb[j]++; } }
+        }
+      }
+    }
+    this.npairs = np;
+  }
+
+  refreshPairs() {
+    const { pos, pa, pb, pq, nb, npairs } = this;
+    const ih = 1 / this.h;
+    nb.fill(0);
+    for (let k = 0; k < npairs; k++) {
+      const i = pa[k], j = pb[k];
+      const dx = pos[j * 3] - pos[i * 3], dy = pos[j * 3 + 1] - pos[i * 3 + 1], dz = pos[j * 3 + 2] - pos[i * 3 + 2];
+      const q = Math.sqrt(dx * dx + dy * dy + dz * dz) * ih;
+      pq[k] = q;
+      if (q < 1) { nb[i]++; nb[j]++; }
+    }
+  }
+
+  computeDensity() {
+    const { rho, npairs, pa, pb, pq } = this;
+    rho.fill(1); // self contribution
+    for (let k = 0; k < npairs; k++) {
+      if (pq[k] >= 1) continue;
+      const w = 1 - pq[k], w2 = w * w;
+      rho[pa[k]] += w2; rho[pb[k]] += w2;
+    }
+  }
+
+  relaxDensityOnly() {
+    const { rho, pa, pb, pos } = this; const h = this.h;
+    rho.fill(1);
+    for (let k = 0; k < this.npairs; k++) {
+      const i = pa[k], j = pb[k];
+      const q = Math.hypot(pos[j * 3] - pos[i * 3], pos[j * 3 + 1] - pos[i * 3 + 1], pos[j * 3 + 2] - pos[i * 3 + 2]) / h;
+      if (q < 1) { const w = 1 - q; rho[i] += w * w; rho[j] += w * w; }
+    }
+  }
+  // ---- double density relaxation (Jacobi, symmetric) ----------------------------------
+  relax(iters, dt) {
+    const { pos, rho, P, PN, dx, pa, pb, alive, N } = this;
+    // stiffness scales with dt^2 (Clavet): physical pressure, not per-step displacement
+    const f = Math.min(1, (dt * dt) / (DT_REF * DT_REF)) * this.resK;
+    const h = this.h, kP = (this.kP || 0.055) * f, kN = (this.kN || 0.02) * f, rho0 = this.rho0, tc = this.tc || 0.4;
+    for (let it = 0; it < iters; it++) {
+      rho.fill(1);
+      const rn = this.PN; rn.fill(1);
+      for (let k = 0; k < this.npairs; k++) {
+        const i = pa[k], j = pb[k];
+        const ddx = pos[j * 3] - pos[i * 3], ddy = pos[j * 3 + 1] - pos[i * 3 + 1], ddz = pos[j * 3 + 2] - pos[i * 3 + 2];
+        const q = Math.sqrt(ddx * ddx + ddy * ddy + ddz * ddz) / h;
+        this.pq[k] = q;
+        if (q >= 1) continue;
+        const w = 1 - q, w2 = w * w;
+        rho[i] += w2; rho[j] += w2; rn[i] += w2 * w; rn[j] += w2 * w;
+      }
+      for (let i = 0; i < N; i++) {
+        let pr = kP * (rho[i] - rho0);
+        if (pr < -tc * kP * rho0) pr = -tc * kP * rho0; // limited tension (cohesion / surface tension)
+        P[i] = pr; PN[i] = kN * rn[i];
+      }
+      dx.fill(0);
+      for (let k = 0; k < this.npairs; k++) {
+        const q = this.pq[k];
+        if (q >= 1 || q < 1e-6) continue;
+        const i = pa[k], j = pb[k];
+        const w = 1 - q;
+        const D = 0.5 * h * ((P[i] + P[j]) * w + (PN[i] + PN[j]) * w * w) * 0.5;
+        const inv = 1 / (q * h);
+        const ux = (pos[j * 3] - pos[i * 3]) * inv, uy = (pos[j * 3 + 1] - pos[i * 3 + 1]) * inv, uz = (pos[j * 3 + 2] - pos[i * 3 + 2]) * inv;
+        dx[i * 3] -= D * ux; dx[i * 3 + 1] -= D * uy; dx[i * 3 + 2] -= D * uz;
+        dx[j * 3] += D * ux; dx[j * 3 + 1] += D * uy; dx[j * 3 + 2] += D * uz;
+      }
+      const lim = 0.3 * this.s;
+      for (let i = 0; i < N; i++) {
+        if (!alive[i]) continue;
+        let a = dx[i * 3], b = dx[i * 3 + 1], c = dx[i * 3 + 2];
+        const l = Math.hypot(a, b, c);
+        if (l > lim) { const f = lim / l; a *= f; b *= f; c *= f; }
+        pos[i * 3] += a; pos[i * 3 + 1] += b; pos[i * 3 + 2] += c;
+      }
+    }
+  }
+
+  constrain(dt) {
+    const { pos, prev, alive, N, C, R } = this;
+    const ry = this.ry, rp = this.rp;
+    const shell = 1 - (0.55 * this.s) / R;
+    const memActive = !this.mem.gone;
+    for (let i = 0; i < N; i++) {
+      if (!alive[i]) continue;
+      const o = i * 3;
+      if (memActive) {
+        const lx = (pos[o] - C[0]) / R, ly = (pos[o + 1] - C[1]) / (R * ry), lz = (pos[o + 2] - C[2]) / R;
+        const q = Math.hypot(lx, ly, lz);
+        if (q > shell) {
+          const dxn = lx / q, dyn = ly / q, dzn = lz / q;
+          // only the part of the ray from the centre that is still covered by rubber holds water
+          if (q < 1.25 && this.memIntact(dxn, dyn, dzn)) {
+            const f = shell / q;
+            pos[o] = C[0] + lx * f * R; pos[o + 1] = C[1] + ly * f * R * ry; pos[o + 2] = C[2] + lz * f * R;
+          }
+        }
+      }
+      if (pos[o + 1] < rp) {
+        // impact on the floor: the rim of the spreading sheet throws a crown of droplets
+        const vy = (pos[o + 1] - prev[o + 1]) / dt;
+        if (vy < -1.5) this.foam[i] = Math.min(0.6, this.foam[i] + (-vy - 1.5) * 0.12);
+        if (vy < -1.2 && this.gc && this.rng() < 0.45) {
+          let rx = pos[o] - this.gc[0], rz = pos[o + 2] - this.gc[1];
+          const rl = Math.hypot(rx, rz) || 1; rx /= rl; rz /= rl;
+          const a = -vy, jit = () => (this.rng() - 0.5) * 0.4;
+          const hs = a * (1.0 + 1.1 * this.rng()), up = a * (0.35 + 0.75 * this.rng());
+          this.emit(0, pos[o], rp + 0.002, pos[o + 2], (rx + jit()) * hs, up, (rz + jit()) * hs, 0.0007 + 0.0018 * this.rng(), 3);
+        }
+        // stagnation pressure turns the fall into radial spreading of the sheet
+        if (vy < -0.3 && this.gc) {
+          let rx = pos[o] - this.gc[0], rz = pos[o + 2] - this.gc[1];
+          const rl = Math.hypot(rx, rz);
+          if (rl > 1e-4) { const add = 0.3 * -vy * dt / rl; prev[o] -= rx * add; prev[o + 2] -= rz * add; }
+        }
+        pos[o + 1] = rp;
+        // ground friction: damp tangential motion of this step
+        const fr = Math.min(1, dt / 0.025);   // thin viscous boundary layer: the sheet still spreads
+        pos[o] = pos[o] - (pos[o] - prev[o]) * fr;
+        pos[o + 2] = pos[o + 2] - (pos[o + 2] - prev[o + 2]) * fr;
+        if (prev[o + 1] < rp) prev[o + 1] = rp;
+        // crown: the thickened rim of the fast-spreading sheet lifts off the floor
+        if (this.gc && this.nb[i] < 15) {
+          let rx = pos[o] - this.gc[0], rz = pos[o + 2] - this.gc[1];
+          const rl = Math.hypot(rx, rz);
+          if (rl > 0.03) {
+            const vr = ((pos[o] - prev[o]) * rx + (pos[o + 2] - prev[o + 2]) * rz) / (rl * dt);
+            if (vr > 1.0) prev[o + 1] = rp - 0.35 * (vr - 1.0) * (0.5 + this.rng()) * dt;
+          }
+        }
+      }
+    }
+  }
+
+  // ---- energy deposition from the projectile --------------------------------------------
+  applyBullet(xa, xb) {
+    const b = this.bullet, p = this.p;
+    if (xb < this.xIn || xa > this.xOut) return;
+    const x0 = Math.max(xa, this.xIn), x1 = Math.min(xb, this.xOut);
+    if (x1 <= x0) return;
+    // drag force per unit length = energy deposited per unit length
+    const A = Math.PI * b.r * b.r;
+    const Cd = 0.3 * p.energy;
+    const F = 0.5 * RHO_W * Cd * A * b.v * b.v;
+    const ac = Math.max(1.1 * this.s, 4 * b.r);
+    const L = Math.log(Math.max(1.5, this.R / ac));
+    const U = Math.sqrt(F / (Math.PI * RHO_W * ac * ac * L));
+    const { pos, vel, prev, alive, N } = this;
+    for (let i = 0; i < N; i++) {
+      if (!alive[i]) continue;
+      const o = i * 3;
+      const px = pos[o];
+      if (px < x0 || px >= x1) continue;
+      const ry = pos[o + 1] - b.y, rz = pos[o + 2] - b.z;
+      const d = Math.hypot(ry, rz) + 1e-6;
+      const dd = Math.max(d, ac);
+      let vr = U * (ac / dd) * Math.exp(-0.35 * dd / ac);
+      vr *= 0.85 + 0.3 * this.rng();
+      const near = Math.exp(-d / ac);
+      this.foam[i] = Math.max(this.foam[i], 0.7 * Math.exp(-(d * d) / (ac * ac)));
+      // radial cavity flow + forward drag of fluid near the shot line
+      vel[o + 1] += vr * ry / d;
+      vel[o + 2] += vr * rz / d;
+      vel[o] += vr * (0.55 * near + 0.08) * (0.7 + 0.6 * this.rng());
+      // back-splash near the entry, forward jet near the exit
+      const fromIn = (px - this.xIn) / (this.xOut - this.xIn);
+      if (fromIn < 0.18) vel[o] -= vr * 0.9 * (1 - fromIn / 0.18) * near;
+      if (fromIn > 0.8) vel[o] += vr * 0.8 * ((fromIn - 0.8) / 0.2) * near;
+      const cap = 0.22 * b.v;
+      const sp = Math.hypot(vel[o], vel[o + 1], vel[o + 2]);
+      if (sp > cap) { const f = cap / sp; vel[o] *= f; vel[o + 1] *= f; vel[o + 2] *= f; }
+    }
+    // bullet decelerates
+    b.v = Math.max(0.2 * b.v0, b.v - (F * (x1 - x0)) / (b.mass * b.v));
+  }
+
+  // ---- secondary particles ----------------------------------------------------------
+  emit(type, x, y, z, vx, vy, vz, size, life) {
+    const f = this.fx;
+    const i = f.head;
+    f.head = (f.head + 1) % FX_CAP;
+    if (!f.alive[i]) f.n++;
+    f.alive[i] = 1; f.type[i] = type;
+    f.pos[i * 3] = x; f.pos[i * 3 + 1] = y; f.pos[i * 3 + 2] = z;
+    f.vel[i * 3] = vx; f.vel[i * 3 + 1] = vy; f.vel[i * 3 + 2] = vz;
+    f.age[i] = 0; f.life[i] = life; f.size[i] = size;
+  }
+  randCone(ax, ay, az, spread) {
+    // random unit vector within a cone around (ax,ay,az)
+    const r = this.rng;
+    let ux = r() * 2 - 1, uy = r() * 2 - 1, uz = r() * 2 - 1;
+    const dot = ux * ax + uy * ay + uz * az;
+    ux -= dot * ax; uy -= dot * ay; uz -= dot * az;
+    const ul = Math.hypot(ux, uy, uz) + 1e-9;
+    const ang = spread * Math.sqrt(r());
+    const c = Math.cos(ang), s = Math.sin(ang);
+    return [ax * c + (ux / ul) * s, ay * c + (uy / ul) * s, az * c + (uz / ul) * s];
+  }
+  emitHole(dt, which) {
+    const m = this.mem, p = this.p, b = this.bullet;
+    const t0 = which === 0 ? m.tIn : m.tOut;
+    if (t0 < 0) return;
+    const age = this.t - t0;
+    if (age > 0.004) return;
+    const X = which === 0 ? this.xIn : this.xOut;
+    const k = Math.exp(-age / 0.0012);
+    const vb = b.v0 * Math.sqrt(p.energy);
+    const baseRate = (which === 0 ? 0.9e6 : 1.8e6) * p.mist * Math.min(1.5, p.energy * b.v0 / 600); // particles per second of physical time
+    let cnt = baseRate * k * dt;
+    cnt = Math.floor(cnt) + (this.rng() < cnt % 1 ? 1 : 0);
+    const ax = which === 0 ? -0.75 : 1, ay = 0, az = 0;
+    const e = which === 0 ? this.e1 : this.e2;
+    let dx = ax + e[0] * 0.5, dy = ay + e[1] * 0.5, dz = az + e[2] * 0.5;
+    const l = Math.hypot(dx, dy, dz); dx /= l; dy /= l; dz /= l;
+    for (let c = 0; c < cnt; c++) {
+      const mist = this.rng() < 0.45;
+      const spread = which === 0 ? 0.95 : 0.55;
+      const d = this.randCone(dx, dy, dz, spread * (mist ? 1.25 : 1));
+      const sp = vb * (which === 0 ? 0.035 : 0.075) * (0.25 + 0.75 * Math.pow(this.rng(), 0.6)) * (0.5 + 0.5 * k);
+      const jx = (this.rng() - 0.5) * 0.01, jy = (this.rng() - 0.5) * 0.01, jz = (this.rng() - 0.5) * 0.01;
+      if (mist) this.emit(1, X + jx, b.y + jy, b.z + jz, d[0] * sp, d[1] * sp, d[2] * sp, 0.004 + 0.004 * this.rng(), 0.35 + 0.6 * this.rng());
+      else this.emit(0, X + jx, b.y + jy, b.z + jz, d[0] * sp, d[1] * sp, d[2] * sp, 0.0006 + 0.0016 * Math.pow(this.rng(), 2), 3);
+    }
+  }
+  atomise(i, sp) {
+    // a fluid parcel moving faster than the sheet can hold together shatters into drops + mist
+    const o = i * 3, { pos, vel } = this;
+    this.alive[i] = 0; this.pairsDirty = true;
+    const r = this.rng;
+    const nd = 3 + Math.floor(r() * 3);
+    for (let k = 0; k < nd; k++) {
+      const j = 0.18;
+      this.emit(0, pos[o] + (r() - 0.5) * this.s, pos[o + 1] + (r() - 0.5) * this.s, pos[o + 2] + (r() - 0.5) * this.s,
+        vel[o] * (1 + (r() - 0.5) * j), vel[o + 1] * (1 + (r() - 0.5) * j) + (r() - 0.5) * sp * 0.08, vel[o + 2] * (1 + (r() - 0.5) * j) + (r() - 0.5) * sp * 0.08,
+        0.0008 + 0.0022 * Math.pow(r(), 1.5), 3);
+    }
+    if (this.p.mist > 0 && r() < 0.8 * this.p.mist)
+      this.emit(1, pos[o], pos[o + 1], pos[o + 2], vel[o] * 0.8, vel[o + 1] * 0.8, vel[o + 2] * 0.8, 0.004 + 0.004 * r(), 0.4 + 0.6 * r());
+  }
+  updateFx(dt) {
+    const f = this.fx, g = this.p.gravity;
+    let n = 0;
+    for (let i = 0; i < FX_CAP; i++) {
+      if (!f.alive[i]) continue;
+      const o = i * 3;
+      f.age[i] += dt;
+      if (f.type[i] === 0) {
+        const vx = f.vel[o], vy = f.vel[o + 1], vz = f.vel[o + 2];
+        const sp = Math.hypot(vx, vy, vz);
+        const k = (3 * RHO_AIR * 0.47) / (8 * RHO_W * f.size[i]);
+        const damp = 1 / (1 + k * sp * dt);
+        f.vel[o] = vx * damp; f.vel[o + 1] = (vy - g * dt) * damp; f.vel[o + 2] = vz * damp;
+      } else {
+        const damp = Math.exp(-dt / 0.03);
+        f.vel[o] *= damp; f.vel[o + 1] = f.vel[o + 1] * damp - 0.03 * g * dt; f.vel[o + 2] *= damp;
+        f.size[i] += dt * 0.05;
+      }
+      f.pos[o] += f.vel[o] * dt; f.pos[o + 1] += f.vel[o + 1] * dt; f.pos[o + 2] += f.vel[o + 2] * dt;
+      if (f.pos[o + 1] < 0) {
+        if (f.type[i] === 0) { this.deposit(f.pos[o], f.pos[o + 2], f.size[i] * 6, 0.02); f.alive[i] = 0; continue; }
+        f.pos[o + 1] = 0; f.vel[o + 1] = 0;
+      }
+      if (f.age[i] > f.life[i]) { f.alive[i] = 0; continue; }
+      n++;
+    }
+    f.n = n;
+  }
+
+  deposit(x, z, radius, amount) {
+    const cell = (2 * WET_EXT) / WET_RES;
+    const cx = (x + WET_EXT) / cell, cz = (z + WET_EXT) / cell;
+    const rr = Math.max(1, radius / cell);
+    const i0 = Math.max(0, Math.floor(cx - rr * 2)), i1 = Math.min(WET_RES - 1, Math.ceil(cx + rr * 2));
+    const j0 = Math.max(0, Math.floor(cz - rr * 2)), j1 = Math.min(WET_RES - 1, Math.ceil(cz + rr * 2));
+    for (let j = j0; j <= j1; j++)
+      for (let i = i0; i <= i1; i++) {
+        const d2 = ((i + 0.5 - cx) ** 2 + (j + 0.5 - cz) ** 2) / (rr * rr);
+        const w = Math.exp(-d2 * 1.5) * amount;
+        this.wet[j * WET_RES + i] = Math.min(4, this.wet[j * WET_RES + i] + w);
+      }
+    this.wetDirty = true;
+  }
+
+  // ---- time stepping ------------------------------------------------------------------
+  chooseDt() {
+    let dt = (0.45 * this.s) / Math.max(this.vmaxBulk, 0.6);
+    dt = Math.min(Math.max(dt, 2e-5), 5e-4);
+    const b = this.bullet;
+    if (b.x < this.xOut + 0.05) {
+      if (b.x < this.xIn - 0.03) dt = Math.min(dt, Math.max(((this.xIn - 0.03) - b.x) / b.v, 1e-6) + 1e-7, 2e-4);
+      else dt = Math.min(dt, 0.6 * this.s / b.v);
+    }
+    return dt;
+  }
+
+  // keep particles in Morton (Z-curve) order of their cells so that neighbours are close in
+  // memory: the pair loops then run from cache instead of chasing random indices
+  reorder() {
+    const { N } = this, inv = 1 / this.h;
+    const keys = this._keys || (this._keys = new Float64Array(N));
+    const spread = (v) => { v &= 1023; v = (v | (v << 16)) & 0x030000FF; v = (v | (v << 8)) & 0x0300F00F; v = (v | (v << 4)) & 0x030C30C3; v = (v | (v << 2)) & 0x09249249; return v; };
+    for (let i = 0; i < N; i++) {
+      if (!this.alive[i]) { keys[i] = 2 ** 40 * 2 + i; continue; }
+      const cx = Math.floor(this.pos[i * 3] * inv) + 512, cy = Math.floor(this.pos[i * 3 + 1] * inv) + 512, cz = Math.floor(this.pos[i * 3 + 2] * inv) + 512;
+      keys[i] = (spread(cx) | (spread(cy) << 1) | (spread(cz) << 2)) * 16384 + i;
+      if (keys[i] < 0) keys[i] += 2 ** 30 * 16384;
+    }
+    keys.sort();
+    const perm = this._perm || (this._perm = new Int32Array(N));
+    for (let k = 0; k < N; k++) perm[k] = keys[k] % 16384;
+    const tmp3 = this._tmp3 || (this._tmp3 = new Float32Array(N * 3)), tmp1 = this._tmp1 || (this._tmp1 = new Float32Array(N));
+    for (const name of ['pos', 'prev', 'vel']) {
+      const a = this[name];
+      for (let k = 0; k < N; k++) { const i = perm[k]; tmp3[k * 3] = a[i * 3]; tmp3[k * 3 + 1] = a[i * 3 + 1]; tmp3[k * 3 + 2] = a[i * 3 + 2]; }
+      a.set(tmp3);
+    }
+    for (const name of ['nbSmooth', 'groundT', 'foam']) {
+      const a = this[name];
+      for (let k = 0; k < N; k++) tmp1[k] = a[perm[k]];
+      a.set(tmp1);
+    }
+    for (const name of ['alive', 'nb']) {
+      const a = this[name], c = a.slice();
+      for (let k = 0; k < N; k++) a[k] = c[perm[k]];
+    }
+    this.pairsDirty = true;
+  }
+
+  step(dt) {
+    if (((this.steps || 0) % 25) === 0 && this.N <= 16384) this.reorder();
+    const p = this.p, b = this.bullet, m = this.mem;
+    const { N, pos, prev, vel, alive, nb, nbSmooth } = this;
+    const g = p.gravity;
+
+    // bullet
+    const xa = b.x;
+    b.x += b.v * dt;
+    if (m.tIn < 0 && b.x >= this.xIn) m.tIn = this.t + dt * ((this.xIn - xa) / (b.x - xa));
+    if (m.tOut < 0 && b.x >= this.xOut) m.tOut = this.t + dt * ((this.xOut - xa) / (b.x - xa));
+    this.applyBullet(xa, b.x);
+
+    // membrane tear kinematics (latex retraction ~ tens of m/s)
+    const tn = this.t + dt;
+    const vr = p.snap;
+    if (m.tIn >= 0) m.th1 = 0.05 + (vr * Math.max(0, tn - m.tIn)) / this.R;
+    if (m.tOut >= 0) m.th2 = 0.05 + (vr * Math.max(0, tn - m.tOut)) / this.R;
+    if (m.tIn >= 0) m.alpha = Math.PI + 0.3 - (vr * 0.8 * Math.max(0, tn - m.tIn - 0.0009)) / this.R;
+    if (!m.gone && m.tIn >= 0 && (m.alpha < 0.28 || m.th1 + m.th2 > 2 * Math.PI)) { m.gone = true; m.tGone = tn; }
+
+    // external forces
+    for (let i = 0; i < N; i++) {
+      if (!alive[i]) continue;
+      const o = i * 3;
+      vel[o + 1] -= g * dt;
+      if (nbSmooth[i] < 5) { // isolated drops feel aerodynamic drag
+        const sp = Math.hypot(vel[o], vel[o + 1], vel[o + 2]);
+        const k = (3 * RHO_AIR * 0.47) / (8 * RHO_W * 0.5 * this.s);
+        const d = 1 / (1 + k * sp * dt);
+        vel[o] *= d; vel[o + 1] *= d; vel[o + 2] *= d;
+      }
+    }
+    // temporary cavity: the tunnel left by the bullet is near-vacuum, so atmospheric pressure
+    // on the outside decelerates the outward flow and then collapses the cavity (Rayleigh-type)
+    if (m.tIn >= 0) {
+      const age = tn - m.tIn;
+      const pe = P_ATM * Math.exp(-age / 0.007) * p.cavity;
+      if (pe > 50 && !m.cavClosed) {
+        const ac = Math.max(1.1 * this.s, 4 * b.r);
+        // has the tunnel pinched shut?  (enough fluid back on the shot line in the middle)
+        if (age > 0.0006) {
+          let onAxis = 0;
+          for (let i = 0; i < N; i++) {
+            if (!alive[i] || nbSmooth[i] < 6) continue;
+            const o = i * 3;
+            if (Math.abs(pos[o] - this.C[0]) > 0.6 * this.R) continue;
+            if (Math.hypot(pos[o + 1] - b.y, pos[o + 2] - b.z) < 0.55 * ac) onAxis++;
+          }
+          if (onAxis > 6 * Math.pow(this.resK, 1.5)) m.cavClosed = true;
+        }
+        const L = Math.log(Math.max(1.5, this.R / ac));
+        const xa0 = this.xIn - 0.3 * this.R, xb0 = this.xOut + 0.3 * this.R;
+        for (let i = 0; i < N; i++) {
+          if (!alive[i] || nbSmooth[i] < 6) continue;
+          const o = i * 3;
+          if (pos[o] < xa0 || pos[o] > xb0) continue;
+          const ry = pos[o + 1] - b.y, rz = pos[o + 2] - b.z;
+          const d = Math.hypot(ry, rz) + 1e-6;
+          const vrad = (vel[o + 1] * ry + vel[o + 2] * rz) / d;
+          if (d < 0.8 * ac && vrad < 0) continue; // cavity closed here
+          let a = Math.min(4000, pe / (RHO_W * Math.max(d, ac) * L));
+          // air rushing in through the holes softens the collapse phase
+          if (vrad < 0) a *= 0.3;
+          vel[o + 1] -= (a * dt * ry) / d;
+          vel[o + 2] -= (a * dt * rz) / d;
+        }
+      }
+    }
+    prev.set(pos);
+    for (let i = 0; i < N * 3; i++) pos[i] += vel[i] * dt;
+
+    this.buildPairs();
+    this.relax(1, dt);
+    this.constrain(dt);
+
+    // velocities + XSPH viscosity
+    const inv = 1 / dt;
+    for (let i = 0; i < N * 3; i++) vel[i] = (pos[i] - prev[i]) * inv;
+    const dv = this.dv; dv.fill(0);
+    const c = Math.min(0.2, 0.06 * this.resV) * Math.min(1, dt / DT_REF);
+    for (let k = 0; k < this.npairs; k++) {
+      const q = this.pq[k]; if (q >= 1) continue;
+      const i = this.pa[k], j = this.pb[k], w = (1 - q) * c;
+      for (let a = 0; a < 3; a++) {
+        const d = (vel[j * 3 + a] - vel[i * 3 + a]) * w;
+        dv[i * 3 + a] += d; dv[j * 3 + a] -= d;
+      }
+    }
+    let vmax = 0;
+    for (let i = 0; i < N; i++) {
+      if (!alive[i]) continue;
+      const o = i * 3;
+      const f = 1 / (1 + 0.1 * nb[i] * 0);
+      vel[o] += dv[o] / Math.max(1, nb[i] * 0.35) * f;
+      vel[o + 1] += dv[o + 1] / Math.max(1, nb[i] * 0.35) * f;
+      vel[o + 2] += dv[o + 2] / Math.max(1, nb[i] * 0.35) * f;
+      nbSmooth[i] += (nb[i] - nbSmooth[i]) * 0.35;
+      if (this.foam[i] > 0) this.foam[i] *= Math.exp(-dt / 0.45);
+      const sp = Math.hypot(vel[o], vel[o + 1], vel[o + 2]);
+      if (sp > V_JET) { this.atomise(i, sp); continue; }
+      if (nb[i] >= 6 && sp > vmax) vmax = sp;
+      // ground settling -> absorbed into the wet film
+      // slow water lying in thin rivulets on the floor becomes part of the thin film (wet map)
+      const thin = nb[i] < 14;
+      if (pos[o + 1] <= this.rp + 1e-3 && sp < (thin ? 0.9 : 0.35)) {
+        this.groundT[i] += dt;
+        if (this.groundT[i] > (thin ? 0.03 : 0.06)) { alive[i] = 0; this.pairsDirty = true; this.deposit(pos[o], pos[o + 2], this.s * 2.2, 0.35); continue; }
+      } else this.groundT[i] = Math.max(0, this.groundT[i] - dt);
+      if (Math.abs(pos[o]) > 6 || Math.abs(pos[o + 2]) > 6 || pos[o + 1] > 8) { alive[i] = 0; this.pairsDirty = true; }
+      // touching the ground wets it
+      if (pos[o + 1] <= this.rp + 1e-3 && this.rng() < 0.08) this.deposit(pos[o], pos[o + 2], this.s * 1.5, 0.05);
+      // aerodynamic break-up of fast, thin sheets -> mist and fine drops
+      const vth = pos[o + 1] < 4 * this.s ? 2.6 : 6;   // the spreading floor sheet fringes into drops at a lower speed
+      if (sp > vth && nb[i] < 10 && p.mist > 0) {
+        const prob = (sp - vth) * dt * 90 * p.mist;
+        if (this.rng() < prob) {
+          const low = vth < 3;
+          const mist = this.rng() < (low ? 0.15 : 0.6);
+          const j = 0.35;
+          // crown splash: the rim of the floor sheet lifts off at an angle
+          const lift = low ? Math.hypot(vel[o], vel[o + 2]) * (0.25 + 0.5 * this.rng()) : 0;
+          this.emit(mist ? 1 : 0, pos[o], pos[o + 1], pos[o + 2],
+            vel[o] * (0.7 + j * this.rng()), vel[o + 1] * (0.7 + j * this.rng()) + lift, vel[o + 2] * (0.7 + j * this.rng()),
+            mist ? 0.003 + 0.004 * this.rng() : 0.0005 + 0.0012 * this.rng(), mist ? 0.3 + 0.5 * this.rng() : 3);
+        }
+      }
+    }
+    this.vmaxBulk = vmax;
+    { let gx = 0, gz = 0, gn = 0; for (let i = 0; i < N; i++) if (alive[i]) { gx += pos[i * 3]; gz += pos[i * 3 + 2]; gn++; } this.gc = gn ? [gx / gn, gz / gn] : null; }
+
+    this.emitHole(dt, 0);
+    this.emitHole(dt, 1);
+    this.updateFx(dt);
+
+    this.t = tn;
+    this.steps++;
+    this.version++;
+  }
+
+  // advance to physical time T with a step budget; returns true when reached
+  advanceTo(T, maxSteps) {
+    let s = 0;
+    while (this.t < T - 1e-9 && s < maxSteps) {
+      let dt = this.chooseDt();
+      if (this.t + dt > T) dt = Math.max(T - this.t, 1e-6);
+      this.step(dt);
+      s++;
+    }
+    return this.t >= T - 1e-9;
+  }
+
+  snapshot() {
+    const f = this.fx;
+    return {
+      t: this.t, pos: this.pos.slice(), prev: this.prev.slice(), vel: this.vel.slice(), alive: this.alive.slice(),
+      nbSmooth: this.nbSmooth.slice(), groundT: this.groundT.slice(), foam: this.foam.slice(), wet: this.wet.slice(),
+      bullet: Object.assign({}, this.bullet), mem: Object.assign({}, this.mem), vmax: this.vmaxBulk, rng: this.rngState(), gc: this.gc ? this.gc.slice() : null,
+      fx: { n: f.n, head: f.head, pos: f.pos.slice(), vel: f.vel.slice(), age: f.age.slice(), life: f.life.slice(), size: f.size.slice(), type: f.type.slice(), alive: f.alive.slice() },
+    };
+  }
+  restore(S) {
+    this.t = S.t; this.pos.set(S.pos); this.prev.set(S.prev); this.vel.set(S.vel); this.alive.set(S.alive);
+    this.gc = S.gc ? S.gc.slice() : null; this.pairsDirty = true; this.nbSmooth.set(S.nbSmooth); this.groundT.set(S.groundT); this.foam.set(S.foam); this.wet.set(S.wet); this.wetDirty = true;
+    Object.assign(this.bullet, S.bullet); Object.assign(this.mem, S.mem); this.vmaxBulk = S.vmax;
+    this.rng = mulberry32(S.rng);
+    const f = this.fx; f.n = S.fx.n; f.head = S.fx.head;
+    for (const k of ['pos', 'vel', 'age', 'life', 'size', 'type', 'alive']) f[k].set(S.fx[k]);
+    this.buildPairs();
+    this.version++;
+  }
+  rngState() { const v = Math.floor(this.rng() * 4294967296); this.rng = mulberry32(v); return v; }
+}
+
+if (typeof module !== 'undefined') module.exports = { BalloonSim, WET_RES, WET_EXT, FX_CAP };
+
+// ---------------------------------------------------------------------------
+// WebGL2 renderer.  Pass 1 ray-traces the scene (water iso-surface from a 3D
+// density field with refraction/TIR, latex membrane, bullet, studio set) into an
+// HDR target with depth.  Pass 2 draws spray drops + mist as depth-tested
+// impostors.  Pass 3 tone-maps.
+// ---------------------------------------------------------------------------
+const TEX_MAX = 144;
+
+const GLSL_COMMON = `#version 300 es
+precision highp float;
+precision highp sampler3D;
+uniform vec3 uCamPos, uCamRight, uCamUp, uCamFwd;
+uniform float uTanHalf, uAspect;
+uniform mat4 uViewProj;
+uniform vec3 uL; uniform float uLInt;        // key light direction (towards light), intensity
+uniform vec3 uFillDir;
+uniform vec3 uKeyC, uKeyU, uKeyV; uniform vec2 uKeyHalf;
+uniform vec3 uFillC, uFillU, uFillV;
+uniform vec3 uFocus;                          // balloon centre (set dressing is placed around it)
+uniform sampler2D uWet; uniform float uWetExt;
+
+float hash13(vec3 p){ p = fract(p*0.1031); p += dot(p, p.zyx+31.32); return fract((p.x+p.y)*p.z); }
+float vnoise(vec3 p){
+  vec3 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
+  float n000=hash13(i), n100=hash13(i+vec3(1,0,0)), n010=hash13(i+vec3(0,1,0)), n110=hash13(i+vec3(1,1,0));
+  float n001=hash13(i+vec3(0,0,1)), n101=hash13(i+vec3(1,0,1)), n011=hash13(i+vec3(0,1,1)), n111=hash13(i+vec3(1,1,1));
+  return mix(mix(mix(n000,n100,f.x),mix(n010,n110,f.x),f.y), mix(mix(n001,n101,f.x),mix(n011,n111,f.x),f.y), f.z);
+}
+float fbm(vec3 p){ float a=0.5, s=0.0; for(int i=0;i<5;i++){ s+=a*vnoise(p); p*=2.03; a*=0.5; } return s; }
+float schlick(float c, float f0){ return f0 + (1.0-f0)*pow(clamp(1.0-c,0.0,1.0),5.0); }
+
+// soft-edged rectangular area light, as seen along a ray
+float rectLight(vec3 ro, vec3 rd, vec3 c, vec3 u, vec3 v, vec2 hs, float rough){
+  vec3 n = normalize(cross(u, v));
+  float dn = dot(rd, n);
+  if (abs(dn) < 1e-4) return 0.0;
+  float t = dot(c - ro, n) / dn;
+  if (t <= 0.0) return 0.0;
+  vec3 p = ro + rd*t - c;
+  vec2 q = vec2(dot(p,u), dot(p,v)) / hs;
+  float e = 0.03 + rough*1.6;
+  float m = (1.0 - smoothstep(1.0-e, 1.0+e, abs(q.x))) * (1.0 - smoothstep(1.0-e, 1.0+e, abs(q.y)));
+  // diffuser fabric: slightly brighter centre
+  return m * (0.8 + 0.2*(1.0 - dot(q,q)*0.5));
+}
+
+// ---- static set: grid board, concrete floor, dark stage ------------------------
+const float BOARD_Z = -1.35;
+float gPixA = 0.001, gPath = 0.0;   // ray-cone spread (rad) and path length so far: texture filtering
+float gridLine(float d, float hw, float fw){
+  // filtered thin line: fades to its mean coverage when the footprint is wider than the line
+  float w = max(fw, hw);
+  return (1.0 - smoothstep(hw*0.5, hw*0.5 + w, d)) * clamp(hw / w, 0.0, 1.0);
+}
+vec3 boardAlbedo(vec2 p, float fw){
+  float a = 0.40;
+  vec2 g = abs(fract(p/0.05 + 0.5) - 0.5)*0.05;
+  float minor = gridLine(min(g.x, g.y), 0.0016, fw);
+  minor = mix(minor, 0.064, smoothstep(0.004, 0.02, fw));
+  vec2 G = abs(fract(p/0.25 + 0.5) - 0.5)*0.25;
+  float major = gridLine(min(G.x, G.y), 0.0032, fw);
+  major = mix(major, 0.026, smoothstep(0.01, 0.06, fw));
+  a *= 1.0 - 0.30*minor; a *= 1.0 - 0.5*major;
+  a *= 0.92 + 0.08*vnoise(vec3(p*9.0, 1.0));
+  return vec3(a*0.97, a*0.98, a);
+}
+vec3 floorAlbedo(vec2 p){
+  float n = fbm(vec3(p*3.1, 0.0)), n2 = vnoise(vec3(p*40.0, 2.0));
+  float c = 0.13 + 0.06*n + 0.015*n2;
+  vec2 s = abs(fract(p/1.2) - 0.5);
+  c *= 1.0 - 0.35*(1.0 - smoothstep(0.0, 0.004, 0.5 - max(s.x, s.y)));
+  return vec3(c*1.02, c, c*0.96);
+}
+float wetAt(vec2 xz){
+  vec2 uv = xz / (2.0*uWetExt) + 0.5;
+  if (any(lessThan(uv, vec2(0))) || any(greaterThan(uv, vec2(1)))) return 0.0;
+  return texture(uWet, uv).r;
+}
+float stageFalloff(vec3 p){ vec3 d = p - vec3(uFocus.x, 0.0, uFocus.z); return exp(-dot(d.xz,d.xz)*0.09); }
+vec3 roomColor(vec3 rd){
+  return mix(vec3(0.035,0.036,0.040), vec3(0.16,0.165,0.175), smoothstep(-0.4, 0.9, rd.y));
+}
+vec3 ambientAt(vec3 n){ return mix(vec3(0.030,0.030,0.028), vec3(0.075,0.080,0.090), n.y*0.5+0.5); }
+
+// Direct light on a diffuse surface (no occlusion)
+vec3 lightDiffuse(vec3 n){
+  float k = max(dot(n, uL), 0.0) * uLInt * 2.6;
+  float f = max(dot(n, uFillDir), 0.0) * 0.35;
+  return vec3(1.0,0.97,0.93)*k + vec3(0.85,0.9,1.0)*f;
+}
+
+// radiance of the environment (everything except the dynamic objects) along a ray
+vec3 envRadiance(vec3 ro, vec3 rd, float rough){
+  float best = 1e9; vec3 col = roomColor(rd);
+  float kl = rectLight(ro, rd, uKeyC, uKeyU, uKeyV, uKeyHalf, rough);
+  float fl = rectLight(ro, rd, uFillC, uFillU, uFillV, vec2(0.45,0.45), rough);
+  // floor
+  if (rd.y < -1e-4){
+    float t = -ro.y / rd.y;
+    if (t > 0.0 && t < best){
+      best = t; vec3 p = ro + rd*t;
+      vec3 a = floorAlbedo(p.xz);
+      float w = clamp(wetAt(p.xz), 0.0, 1.0);
+      a *= mix(1.0, 0.5, w);
+      col = a * (lightDiffuse(vec3(0,1,0)) + ambientAt(vec3(0,1,0))) * stageFalloff(p);
+    }
+  }
+  // grid board behind the balloon
+  if (rd.z < -1e-4){
+    float t = (BOARD_Z - ro.z) / rd.z;
+    if (t > 0.0 && t < best){
+      vec3 p = ro + rd*t;
+      if (abs(p.x - uFocus.x) < 1.7 && p.y > 0.0 && p.y < 2.3){
+        best = t;
+        vec3 n = vec3(0,0,1);
+        col = boardAlbedo(p.xy, gPixA*(gPath + t)) * (lightDiffuse(n)*0.8 + ambientAt(n)) * (0.55 + 0.45*stageFalloff(p));
+      }
+    }
+  }
+  // area lights are in front of everything they overlap
+  col += vec3(1.0,0.97,0.92) * kl * uLInt * 16.0 + vec3(0.8,0.88,1.0) * fl * 2.2;
+  return col;
+}
+`;
+
+const TRACE_FS = GLSL_COMMON + `
+in vec2 vUv;
+out vec4 outColor;
+uniform sampler3D uDens;
+uniform vec3 uGridMin, uTexWorld, uBoxMin, uBoxMax;
+uniform float uIso, uVoxel, uKR, uHasWater, uAerate, uPixA; uniform int uDbg;
+uniform vec3 uBulletTip; uniform float uBulletR, uBulletLen, uBulletOn;
+uniform vec3 uMemC; uniform float uMemR, uMemRy, uMemOn;
+uniform vec3 uE1, uE2; uniform float uTh1, uTh2, uAlpha;
+uniform vec3 uLatex;
+uniform float uRemnant;
+uniform float uStringTop;
+
+// ---------------- water ----------------
+float dens(vec3 p){ return texture(uDens, (p - uGridMin) / uTexWorld).r; }
+uniform highp sampler3D uFoam; uniform float uFoamOn; uniform vec3 uBlobC; uniform float uRip;
+float foamAt(vec3 p){ return uFoamOn > 0.5 ? texture(uFoam, (p - uGridMin) / (uTexWorld)).r : 0.0; }
+vec3 waterNs(vec3 p, float e){
+  vec3 g = vec3(dens(p+vec3(e,0,0)) - dens(p-vec3(e,0,0)), dens(p+vec3(0,e,0)) - dens(p-vec3(0,e,0)), dens(p+vec3(0,0,e)) - dens(p-vec3(0,0,e)));
+  return -normalize(g + vec3(1e-7));
+}
+vec3 waterN(vec3 p){
+  float e = uVoxel * 1.4;
+  vec3 g = vec3(dens(p+vec3(e,0,0)) - dens(p-vec3(e,0,0)), dens(p+vec3(0,e,0)) - dens(p-vec3(0,e,0)), dens(p+vec3(0,0,e)) - dens(p-vec3(0,0,e)));
+  return -normalize(g + vec3(1e-7));
+}
+bool boxHit(vec3 ro, vec3 rd, vec3 bmin, vec3 bmax, out float t0, out float t1){
+  vec3 inv = 1.0 / rd;
+  vec3 a = (bmin - ro) * inv, b = (bmax - ro) * inv;
+  vec3 lo = min(a,b), hi = max(a,b);
+  t0 = max(max(lo.x, lo.y), lo.z); t1 = min(min(hi.x, hi.y), hi.z);
+  return t1 > max(t0, 0.0);
+}
+float waterEnter(vec3 ro, vec3 rd, float tmax){
+  if (uHasWater < 0.5) return -1.0;
+  float t0, t1;
+  if (!boxHit(ro, rd, uBoxMin, uBoxMax, t0, t1)) return -1.0;
+  t0 = max(t0, 0.0); t1 = min(t1, tmax);
+  float t = t0, pt = t0;
+  for (int i = 0; i < 220; i++){
+    if (t > t1) return -1.0;
+    float d = dens(ro + rd*t);
+    if (d > uIso){
+      float a = pt, b = t;
+      for (int k = 0; k < 6; k++){ float m = 0.5*(a+b); if (dens(ro+rd*m) > uIso) b = m; else a = m; }
+      return b;
+    }
+    pt = t;
+    t += d < 0.004 ? 0.27*uKR : 0.5*uVoxel;
+  }
+  return -1.0;
+}
+float waterExit(vec3 ro, vec3 rd){
+  float t0, t1;
+  boxHit(ro, rd, uBoxMin, uBoxMax, t0, t1);
+  float t = 0.4*uVoxel, pt = 0.0;
+  for (int i = 0; i < 200; i++){
+    if (t > t1) return t1;
+    float d = dens(ro + rd*t);
+    if (d < uIso){
+      float a = pt, b = t;
+      for (int k = 0; k < 6; k++){ float m = 0.5*(a+b); if (dens(ro+rd*m) < uIso) b = m; else a = m; }
+      return b;
+    }
+    pt = t;
+    t += 0.55*uVoxel;
+  }
+  return t;
+}
+
+// ---------------- latex membrane (ellipsoid with propagating tears) ----------------
+float tearNoise(vec3 d){ return (vnoise(d*7.0) - 0.5)*0.22 + (vnoise(d*23.0) - 0.5)*0.09; }
+// returns >0 if intact; value = angular distance to the nearest tear edge
+float memIntact(vec3 d){
+  if (uMemOn < 0.5) return -1.0;
+  float n = tearNoise(d);
+  float m = 10.0;
+  if (uTh1 > 0.0) m = min(m, acos(clamp(dot(d, uE1), -1.0, 1.0)) - (uTh1 + n));
+  if (uTh2 > 0.0) m = min(m, acos(clamp(dot(d, uE2), -1.0, 1.0)) - (uTh2 + n*1.2));
+  m = min(m, (uAlpha + n*0.8) - acos(clamp(d.y, -1.0, 1.0)));
+  return m;
+}
+vec2 ellipsoidHits(vec3 ro, vec3 rd){
+  vec3 sc = vec3(uMemR, uMemR*uMemRy, uMemR);
+  vec3 o = (ro - uMemC) / sc, d = rd / sc;
+  float a = dot(d,d), b = dot(o,d), c = dot(o,o) - 1.0;
+  float h = b*b - a*c;
+  if (h < 0.0) return vec2(-1.0);
+  h = sqrt(h);
+  return vec2((-b - h)/a, (-b + h)/a);
+}
+vec3 memDirAt(vec3 p){ vec3 sc = vec3(uMemR, uMemR*uMemRy, uMemR); return normalize((p - uMemC)/sc); }
+float memEl(vec3 p){ vec3 sc = vec3(uMemR, uMemR*uMemRy, uMemR); return length((p - uMemC)/sc); }
+vec3 memNormalAt(vec3 p){ vec3 sc = vec3(uMemR, uMemR*uMemRy, uMemR); return normalize((p - uMemC)/(sc*sc)); }
+
+// neck + knot + (after the pop) the crumpled rubber that stays on the knot
+vec3 knotBase(){ return uMemC + vec3(0.0, uMemR*uMemRy*0.985, 0.0); }
+float sdCappedCone(vec3 p, vec3 a, vec3 b, float ra, float rb){
+  float rba = rb-ra; float baba = dot(b-a,b-a); float papa = dot(p-a,p-a); float paba = dot(p-a,b-a)/baba;
+  float x = sqrt(max(papa - paba*paba*baba, 0.0));
+  float cax = max(0.0, x - ((paba<0.5)?ra:rb));
+  float cay = abs(paba-0.5)-0.5;
+  float k = rba*rba + baba;
+  float f = clamp((rba*(x-ra)+paba*baba)/k, 0.0, 1.0);
+  float cbx = x-ra - f*rba; float cby = paba - f;
+  float s = (cbx < 0.0 && cay < 0.0) ? -1.0 : 1.0;
+  return s*sqrt(min(cax*cax + cay*cay*baba, cbx*cbx + cby*cby*baba));
+}
+float sdKnot(vec3 p){
+  vec3 kb = knotBase();
+  float s = uMemR / 0.08;
+  // neck: a trumpet that flares smoothly into the skin (the balloon's teardrop top)
+  float yy = (p.y - kb.y) / s;
+  float rr = 0.0036 + 0.024*exp(-(yy + 0.006)/0.0045);
+  float d = max(length(p.xz - kb.xz)/s - rr, max(-0.004 - yy, yy - 0.017)) * s * 0.55;
+  vec3 q = p - (kb + vec3(0.0, 0.022, 0.0)*s);
+  d = min(d, length(q*vec3(1.0,1.25,1.0)) - 0.0065*s + 0.0008*s*vnoise(q*500.0/s));
+  if (uRemnant > 0.0){
+    // torn rubber skirt left on the neck: a thin flared shell with a ragged lower edge
+    float L = 0.024*s*uRemnant;
+    vec3 top = kb + vec3(0.0, 0.002*s, 0.0), bot = kb - vec3(0.0, L, 0.0);
+    vec3 q2 = p - kb;
+    float ang = atan(q2.z, q2.x);
+    float wob = (vnoise(vec3(cos(ang)*3.0, sin(ang)*3.0, 1.7)) - 0.5);
+    float sh = abs(sdCappedCone(p + vec3(wob*0.004*s, 0.0, 0.0), bot, top, 0.012*s*(0.8 + 0.5*wob), 0.0055*s)) - 0.0007*s;
+    float edge = (kb.y - L*(0.55 + 0.9*vnoise(vec3(cos(ang)*5.0, sin(ang)*5.0, 3.1)))) - p.y;
+    d = min(d, max(sh, edge) * 0.8);
+  }
+  return d;
+}
+float knotHit(vec3 ro, vec3 rd, float tmax){
+  vec3 c = knotBase() + vec3(0.0, 0.01, 0.0)*(uMemR/0.08);
+  float br = 0.045*(uMemR/0.08);
+  vec3 oc = ro - c; float b = dot(oc, rd); float h = b*b - dot(oc,oc) + br*br;
+  if (h < 0.0) return -1.0;
+  h = sqrt(h);
+  float t = max(-b - h, 0.0), te = min(-b + h, tmax);
+  for (int i = 0; i < 64; i++){
+    if (t > te) return -1.0;
+    float d = sdKnot(ro + rd*t);
+    if (d < 0.00012) return t;
+    t += d;
+  }
+  return -1.0;
+}
+vec3 knotN(vec3 p){
+  vec2 e = vec2(0.0002, 0.0);
+  return normalize(vec3(sdKnot(p+e.xyy)-sdKnot(p-e.xyy), sdKnot(p+e.yxy)-sdKnot(p-e.yxy), sdKnot(p+e.yyx)-sdKnot(p-e.yyx)));
+}
+
+// ---------------- string ----------------
+float stringHit(vec3 ro, vec3 rd, float tmax, float r){
+  vec3 kb = knotBase() + vec3(0.0, 0.026*(uMemR/0.08), 0.0);
+  vec2 o = ro.xz - kb.xz, d = rd.xz;
+  float a = dot(d,d), b = dot(o,d), c = dot(o,o) - r*r;
+  float h = b*b - a*c;
+  if (h < 0.0 || a < 1e-8) return -1.0;
+  float t = (-b - sqrt(h))/a;
+  if (t < 0.0 || t > tmax) return -1.0;
+  float y = ro.y + rd.y*t;
+  if (y < kb.y || y > uStringTop) return -1.0;
+  return t;
+}
+
+// ---------------- bullet: jacketed round-nose / spitzer profile ----------------
+float sdBullet(vec3 p){
+  vec3 q = p - uBulletTip;           // x axis = flight direction, tip at origin
+  float u = -q.x;                    // distance back from the tip
+  float r = length(q.yz);
+  float L = uBulletLen, R = uBulletR, nose = L*0.42;
+  float prof;
+  if (u < nose){ float t = 1.0 - u/nose; prof = R*sqrt(max(0.0, 1.0 - t*t*t)); }
+  else prof = R * (1.0 - 0.08*smoothstep(L*0.85, L, u));
+  float d = (r - prof) * 0.7;
+  d = max(d, -u);
+  d = max(d, u - L);
+  return d;
+}
+float bulletHit(vec3 ro, vec3 rd, float tmax){
+  if (uBulletOn < 0.5) return -1.0;
+  vec3 c = uBulletTip - vec3(uBulletLen*0.5, 0.0, 0.0);
+  float br = uBulletLen*0.6;
+  vec3 oc = ro - c; float b = dot(oc, rd); float h = b*b - dot(oc,oc) + br*br;
+  if (h < 0.0) return -1.0;
+  h = sqrt(h);
+  float t = max(-b - h, 0.0), te = min(-b + h, tmax);
+  for (int i = 0; i < 80; i++){
+    if (t > te) return -1.0;
+    float d = sdBullet(ro + rd*t);
+    if (d < 0.00004) return t;
+    t += max(d, 0.00003);
+  }
+  return -1.0;
+}
+vec3 bulletN(vec3 p){
+  vec2 e = vec2(0.00006, 0.0);
+  return normalize(vec3(sdBullet(p+e.xyy)-sdBullet(p-e.xyy), sdBullet(p+e.yxy)-sdBullet(p-e.yxy), sdBullet(p+e.yyx)-sdBullet(p-e.yyx)));
+}
+
+// ---------------- shadows onto the floor / board ----------------
+vec3 shadowAt(vec3 p){
+  vec3 s = vec3(1.0);
+  // membrane
+  if (uMemOn > 0.5){
+    vec2 h = ellipsoidHits(p, uL);
+    for (int k = 0; k < 2; k++){
+      float t = k == 0 ? h.x : h.y;
+      if (t > 0.0){ vec3 d = memDirAt(p + uL*t); if (memIntact(d) > 0.0) s *= mix(vec3(1.0), uLatex*0.9 + 0.05, 0.6); }
+    }
+  }
+  // water: dark rim, focused caustic core
+  if (uHasWater > 0.5){
+    float t = waterEnter(p, uL, 10.0);
+    if (t > 0.0){
+      vec3 q = p + uL*t;
+      vec3 n = waterNs(q, uVoxel*2.5);
+      float c = max(dot(n, uL), 0.0);
+      s *= 0.38 + 1.1*pow(c, 4.0);
+    }
+  }
+  // knot / rubber
+  if (knotHit(p, uL, 10.0) > 0.0) s *= 0.3;
+  return s;
+}
+
+// shade the static set with shadows (primary rays only)
+vec3 shadeFloor(vec3 p, vec3 rd){
+  vec3 a = floorAlbedo(p.xz);
+  float w = wetAt(p.xz);
+  // sharp-edged stain and standing film (a thin film has a crisp contact line, not a soft cloud)
+  float nz = vnoise(vec3(p.xz*22.0, 3.0));
+  float wet = smoothstep(0.10, 0.17, w + (nz - 0.5)*0.10);
+  float film = smoothstep(0.50, 0.62, w + (nz - 0.5)*0.35);
+  a *= mix(1.0, 0.5, wet);
+  vec3 n = vec3(0,1,0);
+  if (film > 0.0 || wet > 0.0){
+    // meniscus at the contact line: tilt the normal along the film-thickness gradient
+    float e = 2.0*uWetExt/256.0;
+    float gx = wetAt(p.xz + vec2(e,0)) - wetAt(p.xz - vec2(e,0));
+    float gz = wetAt(p.xz + vec2(0,e)) - wetAt(p.xz - vec2(0,e));
+    float edge = film*(1.0 - film)*4.0;
+    vec2 g = vec2(gx, gz) * (0.35 + 2.5*edge);
+    // faint capillary ripples on the film
+    float h0 = vnoise(vec3(p.xz*60.0, 0.0));
+    vec2 rip = vec2(vnoise(vec3((p.xz+vec2(0.002,0))*60.0,0.0)) - h0, vnoise(vec3((p.xz+vec2(0,0.002))*60.0,0.0)) - h0) * 0.18 * film;
+    n = normalize(vec3(-g.x - rip.x, 1.0, -g.y - rip.y));
+  }
+  vec3 sh = shadowAt(p);
+  float k = max(dot(n, uL), 0.0) * uLInt * 2.6;
+  vec3 col = a * (vec3(1.0,0.97,0.93)*k*sh + vec3(0.85,0.9,1.0)*max(dot(n,uFillDir),0.0)*0.35 + ambientAt(n));
+  // wet concrete is glossy; the standing film is a clean mirror
+  float F = schlick(max(dot(-rd, n), 0.0), 0.02);
+  float refl = mix(0.35*wet, 1.0, film);
+  vec3 r = reflect(rd, n);
+  col += refl * F * envRadiance(p + n*0.001, r, mix(0.3, 0.0, film)) * (0.5 + 0.5*sh);
+  // sharp key-light glint on the film
+  col += film * pow(max(dot(r, uL), 0.0), 900.0) * uLInt * 40.0 * sh;
+  // dry concrete sheen
+  col += (1.0-wet) * 0.012 * pow(max(dot(r, uL), 0.0), 8.0) * uLInt;
+  return col * stageFalloff(p);
+}
+vec3 shadeBoard(vec3 p, float fw){
+  vec3 n = vec3(0,0,1);
+  vec3 sh = shadowAt(p);
+  float k = max(dot(n, uL), 0.0) * uLInt * 2.6;
+  return boardAlbedo(p.xy, fw) * ((vec3(1.0,0.97,0.93)*k*sh + vec3(0.85,0.9,1.0)*max(dot(n,uFillDir),0.0)*0.35)*0.8 + ambientAt(n)) * (0.55 + 0.45*stageFalloff(p));
+}
+
+void main(){
+  vec2 ndc = vUv*2.0 - 1.0;
+  vec3 ro = uCamPos;
+  vec3 rd = normalize(uCamFwd + ndc.x*uTanHalf*uAspect*uCamRight + ndc.y*uTanHalf*uCamUp);
+  vec3 col = vec3(0.0), thr = vec3(1.0);
+  float depth = 1.0; bool first = true;
+  bool done = false; bool skipW = false; bool fromSkin = false;
+  gPixA = uPixA; gPath = 0.0;
+  for (int bounce = 0; bounce < 8 && !done; bounce++){
+    float tMax = 1e6;
+    // candidate surfaces
+    float tFloor = rd.y < -1e-5 ? -ro.y/rd.y : -1.0;
+    float tBoard = -1.0;
+    if (rd.z < -1e-5){ float t = (BOARD_Z - ro.z)/rd.z; vec3 p = ro + rd*t; if (t > 0.0 && abs(p.x - uFocus.x) < 1.7 && p.y > 0.0 && p.y < 2.3) tBoard = t; }
+    float tEnv = 1e6;
+    if (tFloor > 0.0) tEnv = min(tEnv, tFloor);
+    if (tBoard > 0.0) tEnv = min(tEnv, tBoard);
+
+    int kind = 0; float tHit = tEnv;
+    if (tFloor > 0.0 && tFloor <= tEnv) kind = 1;
+    if (tBoard > 0.0 && tBoard <= tEnv) kind = 2;
+    float tb = bulletHit(ro, rd, tHit); if (tb > 0.0 && tb < tHit){ tHit = tb; kind = 3; }
+    float tk = knotHit(ro, rd, tHit); if (tk > 0.0 && tk < tHit){ tHit = tk; kind = 4; }
+    // string: analytic pixel coverage of a thin vertical cylinder (no aliasing)
+    {
+      vec3 kb = knotBase() + vec3(0.0, 0.026*(uMemR/0.08), 0.0);
+      vec2 o2 = ro.xz - kb.xz, d2 = rd.xz;
+      float dd = dot(d2, d2);
+      if (dd > 1e-8){
+        float ts = -dot(o2, d2) / dd;
+        float ys = ro.y + rd.y*ts;
+        if (ts > 0.0 && ts < tHit && ys > kb.y && ys < uStringTop){
+          float dist = length(o2 + d2*ts);
+          float fw = gPixA*(gPath + ts);
+          float rS = 0.0007;
+          float cov = clamp((rS + 0.5*fw - dist) / fw, 0.0, 1.0) * min(1.0, 2.0*rS/fw);
+          if (cov > 0.0){
+            vec3 ns = normalize(vec3(o2.x + d2.x*ts, 0.0, o2.y + d2.y*ts) - vec3(rd.x, 0.0, rd.z)*0.5*rS);
+            vec3 cs = vec3(0.72,0.70,0.66) * (lightDiffuse(ns)*0.8 + ambientAt(ns) + 0.25);
+            col += thr * cs * cov; thr *= 1.0 - cov;
+          }
+        }
+      }
+    }
+    // membrane: nearest intact shell crossing
+    float tm = -1.0; float edge = 0.0;
+    if (uMemOn > 0.5 && uDbg != 1 && uDbg != 2){
+      vec2 h = ellipsoidHits(ro, rd);
+      for (int k = 0; k < 2; k++){
+        float t = k == 0 ? h.x : h.y;
+        if (t > 1e-5 && t < tHit){ float m = memIntact(memDirAt(ro + rd*t)); if (m > 0.0){ tm = t; edge = m; break; } }
+      }
+      if (tm > 0.0){ tHit = tm; kind = 5; }
+    }
+    float tw = skipW ? -1.0 : waterEnter(ro, rd, tHit);
+    // just passed inward through the rubber into water that fills it: the water surface is the skin
+    if (fromSkin && !skipW && uHasWater > 0.5 && (dens(ro) > uIso*0.8 || dens(ro + rd*0.012) > uIso)) tw = 1e-5;
+    fromSkin = false;
+    skipW = false;
+    if (tw > 0.0 && tw < tHit){
+      // water bulging through an intact rubber skin is not possible: the skin is the boundary
+      vec3 pw = ro + rd*tw;
+      bool clipped = uMemOn > 0.5 && memEl(pw) > 1.001 && memIntact(memDirAt(pw)) > 0.0;
+      if (!clipped){ tHit = tw; kind = 7; }
+    }
+
+    vec3 p = ro + rd*tHit;
+    gPath += tHit;
+    if (first && kind != 0){ vec4 cl = uViewProj*vec4(p,1.0); depth = clamp(cl.z/cl.w*0.5+0.5, 0.0, 1.0); first = false; }
+
+    if (kind == 0){ col += thr * envRadiance(ro, rd, 0.0); done = true; }
+    else if (kind == 1){
+      // area-light reflections are visible when looking at the floor through the scene
+      col += thr * shadeFloor(p, rd); done = true;
+    }
+    else if (kind == 2){ col += thr * shadeBoard(p, gPixA*gPath); done = true; }
+    else if (kind == 3){
+      vec3 n = bulletN(p);
+      vec3 F0 = vec3(0.96, 0.64, 0.50);
+      float c = max(dot(-rd, n), 0.0);
+      vec3 F = F0 + (1.0-F0)*pow(1.0-c, 5.0);
+      vec3 r = reflect(rd, n);
+      vec3 e = envRadiance(p + n*1e-4, r, 0.22);
+      col += thr * (F * e + F0 * 0.04 * lightDiffuse(n));
+      done = true;
+    }
+    else if (kind == 4 || kind == 6){
+      vec3 n = kind == 4 ? knotN(p) : normalize(vec3(p.x - knotBase().x, 0.0, p.z - knotBase().z));
+      vec3 alb = kind == 4 ? uLatex*0.75 : vec3(0.72,0.70,0.66);
+      float c = max(dot(-rd, n), 0.0);
+      float F = schlick(c, 0.045);
+      vec3 sh = vec3(1.0);
+      vec3 cc = alb * (lightDiffuse(n)*sh + ambientAt(n)) * (1.0-F) + F * (kind == 6 ? 0.0 : 1.0) * envRadiance(p + n*1e-4, reflect(rd, n), 0.25);
+      col += thr * cc; done = true;
+    }
+    else if (kind == 5){
+      vec3 n = memNormalAt(p);
+      vec3 d = memDirAt(p);
+      if (dot(n, rd) > 0.0) n = -n;
+      float rim = 1.0 - smoothstep(0.0, 0.07, edge);          // rolled-up rubber at the tear edge
+      float thick = mix(0.6, 1.0, smoothstep(0.55, 1.0, d.y)); // thicker towards the neck
+      float a = clamp(0.42*thick + 0.5*rim, 0.0, 0.96);
+      float c = max(dot(-rd, n), 0.0);
+      float F = schlick(c, 0.045);
+      vec3 spec = F * envRadiance(p + n*1e-4, reflect(rd, n), 0.12);
+      vec3 diff = uLatex * (lightDiffuse(n) + ambientAt(n)) * a;
+      vec3 back = uLatex * max(dot(rd, uL), 0.0) * uLInt * 0.9 * (1.0 - a*0.5);   // light through the rubber
+      col += thr * (spec + diff*0.9 + back*0.35);
+      thr *= (1.0 - F) * mix(vec3(1.0), uLatex*1.05, clamp(a*1.6, 0.0, 1.0)) * (1.0 - a*0.55);
+      fromSkin = dot(rd, memNormalAt(p)) < 0.0;
+      ro = p + rd*2e-4;
+    }
+    else if (kind == 7 && uDbg == 2){ col = waterN(p)*0.5+0.5; col*=col; done = true; }
+    else if (kind == 7){
+      // water surface: reflect (single bounce to environment) + refract through the volume
+      vec3 n = waterN(p);
+      if (uMemOn > 0.5){
+        float el = memEl(p);
+        if (el > 0.9 && memIntact(memDirAt(p)) > 0.0) n = normalize(mix(n, memNormalAt(p), smoothstep(0.9, 0.975, el)));
+      }
+      // capillary ripples riding on the free surface (left by the retracting rubber and the shot),
+      // in a frame that moves with the water so they do not swim over the surface
+      if (uRip > 0.0){
+        vec3 q4 = (p - uBlobC)*190.0;
+        float h1 = vnoise(q4);
+        vec3 g1 = vec3(vnoise(q4 + vec3(0.3,0,0)) - h1, vnoise(q4 + vec3(0,0.3,0)) - h1, vnoise(q4 + vec3(0,0,0.3)) - h1);
+        n = normalize(n + g1 * uRip);
+      }
+      // splashing water on the floor is covered in capillary ripples and impact roughness
+      float fl = 1.0 - smoothstep(0.012, 0.05, p.y);
+      if (fl > 0.0){
+        vec3 q3 = p*140.0;
+        float h0 = vnoise(q3);
+        vec3 gr = vec3(vnoise(q3 + vec3(0.35,0,0)) - h0, vnoise(q3 + vec3(0,0.35,0)) - h0, vnoise(q3 + vec3(0,0,0.35)) - h0);
+        n = normalize(n + gr * 1.6 * fl);
+      }
+      if (dot(n, rd) > 0.0) n = -n;
+      float c = max(dot(-rd, n), 0.0);
+      float F = schlick(c, 0.02);
+      col += thr * F * envRadiance(p + n*2e-4, reflect(rd, n), 0.0);
+      thr *= (1.0 - F);
+      vec3 dIn = refract(rd, n, 1.0/1.333);
+      vec3 q = p - n*uVoxel*0.35;
+      vec3 dcur = dIn;
+      float travelled = 0.0, foamPath = 0.0;
+      bool escaped = false;
+      // bubbly water: a whitish, scattering layer at the surface
+      float fS = foamAt(p);
+      if (fS > 0.02){
+        vec3 lit = lightDiffuse(n)*0.6 + ambientAt(n) + vec3(0.12);
+        float cover = clamp(fS*0.35, 0.0, 0.4);
+        col += thr * cover * lit * vec3(0.92, 0.95, 0.97);
+        thr *= 1.0 - cover;
+      }
+      for (int k = 0; k < 3; k++){
+        // the bullet can be seen through the water
+        float te = waterExit(q, dcur);
+        foamPath += (foamAt(q + dcur*te*0.25) + foamAt(q + dcur*te*0.75)) * 0.5 * te;
+        float tb2 = bulletHit(q, dcur, te);
+        if (tb2 > 0.0){
+          vec3 bp = q + dcur*tb2; vec3 bn = bulletN(bp);
+          vec3 F0 = vec3(0.96,0.64,0.50);
+          col += thr * F0 * envRadiance(bp + bn*1e-4, reflect(dcur, bn), 0.25) * exp(-travelled*vec3(0.4,0.07,0.03));
+          done = true; escaped = true; break;
+        }
+        bool onSkin = false;
+        if (uMemOn > 0.5){
+          vec2 hm = ellipsoidHits(q, dcur);
+          float tx = hm.y;
+          if (tx > 0.0){
+            vec3 pe = q + dcur*tx;
+            if ((tx < te || memEl(q + dcur*te) > 0.93) && memIntact(memDirAt(pe)) > 0.0){ te = tx; onSkin = true; }
+          }
+        }
+        if (dcur.y < -1e-4){
+          float tf = -q.y / dcur.y;
+          if (tf > 0.0 && tf < te){
+            travelled += tf;
+            vec3 fp = q + dcur*tf;
+            // wet concrete under the water, lit through the water surface: light focused by the
+            // curved surface above forms caustics (brighter where the surface converges the light)
+            vec3 a = floorAlbedo(fp.xz) * 0.6;
+            vec3 tr0 = exp(-travelled * vec3(0.45, 0.07, 0.03));
+            vec3 sn = waterNs(fp + vec3(0.0, 0.5*uVoxel, 0.0), uVoxel*1.5);
+            float caus = 0.75 + 1.1*pow(clamp(dot(sn, uL), 0.0, 1.0), 6.0);
+            col += thr * tr0 * a * (lightDiffuse(vec3(0,1,0))*caus + ambientAt(vec3(0,1,0))) * stageFalloff(fp);
+            done = true; escaped = true; break;
+          }
+        }
+        travelled += te;
+        vec3 e = q + dcur*te;
+        vec3 no = onSkin ? memNormalAt(e) : waterN(e);
+        if (dot(no, dcur) < 0.0) no = -no;
+        vec3 dOut = refract(dcur, -no, 1.333);
+        if (dot(dOut, dOut) < 1e-6){ dcur = reflect(dcur, -no); q = e - no*uVoxel*0.35; continue; }
+        float Fo = schlick(max(dot(dcur, no), 0.0), 0.02);
+        rd = dOut;
+        if (onSkin){ ro = e - no*1e-4; skipW = true; } else ro = e + no*uVoxel*0.6;
+        thr *= (1.0 - Fo);
+        escaped = true; break;
+      }
+      gPixA *= 4.0; gPath += travelled;
+      // Beer-Lambert absorption + aeration (micro-bubbles whiten the water after the hit)
+      float optical = travelled*uAerate*10.0 + foamPath*22.0;       // bubble scattering
+      vec3 tr = exp(-travelled * vec3(0.45, 0.07, 0.03)) * exp(-optical);
+      vec3 inscat = (1.0 - exp(-optical)) * (lightDiffuse(vec3(0,1,0))*0.3 + ambientAt(vec3(0,1,0)) + uLInt*0.2);
+      col += thr * inscat * 0.65;
+      thr *= tr;
+      if (!escaped){ col += thr * envRadiance(ro, rd, 0.3) * 0.5; done = true; }
+      if (uDbg == 7 && escaped && !done){ col = rd*0.5+0.5; done = true; }
+      if (uDbg == 6){ col = escaped ? vec3(0.0, travelled*5.0, 0.0) : vec3(1.0,0.0,0.0); done = true; }
+    }
+    if (max(thr.r, max(thr.g, thr.b)) < 0.01) done = true;
+  }
+  outColor = vec4(col, 1.0);
+  gl_FragDepth = depth;
+}
+`;
+
+const FULL_VS = `#version 300 es
+in vec2 aPos; out vec2 vUv;
+void main(){ vUv = aPos*0.5+0.5; gl_Position = vec4(aPos, 0.0, 1.0); }`;
+
+const SPRITE_VS = `#version 300 es
+precision highp float;
+in vec2 aCorner;
+in vec4 aPS;      // xyz, radius
+in vec4 aInfo;    // type, alpha, age, spare
+uniform mat4 uViewProj; uniform vec3 uCamRight, uCamUp, uCamPos;
+uniform float uPixelWorld; // world size of one pixel at distance 1
+out vec2 vC; out vec4 vInfo; out vec3 vWorld; out float vCover;
+void main(){
+  float dist = length(aPS.xyz - uCamPos);
+  float minR = uPixelWorld * dist * 0.9;
+  float r = max(aPS.w, minR);
+  vCover = clamp((aPS.w*aPS.w)/(r*r), 0.0, 1.0);
+  if (aInfo.x > 0.5) { r = aPS.w; vCover = 1.0; }
+  vec3 w = aPS.xyz + (aCorner.x*uCamRight + aCorner.y*uCamUp) * r;
+  vC = aCorner; vInfo = aInfo; vWorld = w;
+  gl_Position = uViewProj * vec4(w, 1.0);
+}`;
+
+const SPRITE_FS = GLSL_COMMON + `
+in vec2 vC; in vec4 vInfo; in vec3 vWorld; in float vCover;
+out vec4 outColor;
+void main(){
+  float r2 = dot(vC, vC);
+  if (vInfo.x < 0.5){
+    // water droplet: tiny refracting sphere
+    if (r2 > 1.0) discard;
+    vec3 back = -uCamFwd;
+    gPixA = 0.02;
+    vec3 n = normalize(vC.x*uCamRight + vC.y*uCamUp + sqrt(1.0 - r2)*back);
+    vec3 rd = normalize(vWorld - uCamPos);
+    float c = max(dot(-rd, n), 0.0);
+    float F = schlick(c, 0.02);
+    vec3 refl = envRadiance(vWorld, reflect(rd, n), 0.0);
+    vec3 t1 = refract(rd, n, 0.75);
+    vec3 t2 = normalize(t1 + (t1 - rd)*1.6);   // exit through the far side of the drop: image flips
+    vec3 refr = mix(envRadiance(vWorld, t2, 0.05), envRadiance(vWorld, rd, 0.05), 0.35 + 0.4*(1.0 - vCover));
+    vec3 col = F*refl + (1.0-F)*refr*0.95;
+    float lobe = mix(60.0, 600.0, vCover);
+    col += pow(max(dot(reflect(rd, n), uL), 0.0), lobe) * uLInt * 30.0 * (lobe/600.0 + 0.1);
+    float a = vCover * vInfo.y;
+    outColor = vec4(col*a, a);
+  } else {
+    // mist: forward-scattering soft puff
+    float fall = exp(-r2*3.2);
+    if (fall < 0.01) discard;
+    vec3 rd = normalize(vWorld - uCamPos);
+    float ph = 0.35 + 1.4*pow(max(dot(rd, uL), 0.0), 6.0) + 0.3*max(dot(-rd, uL),0.0);
+    vec3 lit = vec3(0.9,0.92,0.95) * (uLInt*0.9*ph + 0.18);
+    float a = fall * vInfo.y;
+    outColor = vec4(lit*a, a);
+  }
+}`;
+
+const COMP_FS = `#version 300 es
+precision highp float;
+in vec2 vUv; out vec4 outColor;
+uniform sampler2D uHdr; uniform float uExposure; uniform vec2 uRes; uniform float uSeed;
+vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14), 0.0, 1.0); }
+float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233)) + uSeed)*43758.5453); }
+void main(){
+  vec3 c = textureLod(uHdr, vUv, 0.0).rgb;
+  // soft bloom from the brightest glints: smooth mip chain instead of a sparse tap lattice
+  vec3 b = max(textureLod(uHdr, vUv, 2.0).rgb - 1.6, 0.0) * 0.05
+         + max(textureLod(uHdr, vUv, 3.0).rgb - 1.2, 0.0) * 0.05
+         + max(textureLod(uHdr, vUv, 4.5).rgb - 0.9, 0.0) * 0.05;
+  c += b;
+  c *= uExposure;
+  c = aces(c);
+  vec2 q = vUv - 0.5;
+  c *= 1.0 - 0.28*dot(q,q)*1.6;
+  c = pow(c, vec3(1.0/2.2));
+  c += (h(gl_FragCoord.xy) - 0.5) * 0.012;
+  outColor = vec4(c, 1.0);
+}`;
+
+class Renderer {
+  constructor(canvas) {
+    this.canvas = canvas;
+    const gl = (this.gl = canvas.getContext('webgl2', { antialias: false, alpha: false, premultipliedAlpha: false, preserveDrawingBuffer: true }));
+    if (!gl) throw new Error('WebGL2 is not available in this browser.');
+    gl.getExtension('EXT_color_buffer_float');
+    gl.getExtension('EXT_color_buffer_half_float');
+    this.progTrace = this.program(FULL_VS, TRACE_FS);
+    this.progSprite = this.program(SPRITE_VS, SPRITE_FS);
+    this.progComp = this.program(FULL_VS, COMP_FS);
+    // full-screen triangle pair
+    this.quad = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.quad);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
+    this.vaoFull = gl.createVertexArray();
+    gl.bindVertexArray(this.vaoFull);
+    for (const p of [this.progTrace, this.progComp]) { const l = gl.getAttribLocation(p, 'aPos'); if (l >= 0) { gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, 2, gl.FLOAT, false, 0, 0); } }
+    // sprites
+    this.spriteCap = 40000;
+    this.spriteData = new Float32Array(this.spriteCap * 8);
+    this.vaoSprite = gl.createVertexArray();
+    gl.bindVertexArray(this.vaoSprite);
+    const corner = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, corner);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
+    let l = gl.getAttribLocation(this.progSprite, 'aCorner');
+    gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, 2, gl.FLOAT, false, 0, 0);
+    this.instBuf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.instBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, this.spriteData.byteLength, gl.DYNAMIC_DRAW);
+    l = gl.getAttribLocation(this.progSprite, 'aPS');
+    gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, 4, gl.FLOAT, false, 32, 0); gl.vertexAttribDivisor(l, 1);
+    l = gl.getAttribLocation(this.progSprite, 'aInfo');
+    gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, 4, gl.FLOAT, false, 32, 16); gl.vertexAttribDivisor(l, 1);
+    gl.bindVertexArray(null);
+
+    // density volume
+    this.dens = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_3D, this.dens);
+    gl.texStorage3D(gl.TEXTURE_3D, 1, gl.R16F, TEX_MAX, TEX_MAX, TEX_MAX);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    for (const w of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T, gl.TEXTURE_WRAP_R]) gl.texParameteri(gl.TEXTURE_3D, w, gl.CLAMP_TO_EDGE);
+    this.densData = new Float32Array(TEX_MAX * TEX_MAX * TEX_MAX);
+    // entrained-air (foam) field on a half-resolution grid aligned with the density grid
+    this.foamTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_3D, this.foamTex);
+    gl.texStorage3D(gl.TEXTURE_3D, 1, gl.R16F, TEX_MAX / 2, TEX_MAX / 2, TEX_MAX / 2);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    for (const w of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T, gl.TEXTURE_WRAP_R]) gl.texParameteri(gl.TEXTURE_3D, w, gl.CLAMP_TO_EDGE);
+    this.foamData = new Float32Array((TEX_MAX / 2) ** 3);
+    this.grid = { has: false };
+    // wetness
+    this.wetTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.wetTex);
+    gl.texStorage2D(gl.TEXTURE_2D, 1, gl.R16F, WET_RES, WET_RES);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    this.fbo = null; this.fw = 0; this.fh = 0;
+    this.uniCache = new Map();
+    this.frame = 0;
+  }
+
+  program(vs, fs) {
+    const gl = this.gl;
+    const mk = (type, src) => {
+      const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s) + '\n' + src.split('\n').map((l, i) => i + 1 + ': ' + l).join('\n').slice(0, 200));
+      return s;
+    };
+    const p = gl.createProgram();
+    gl.attachShader(p, mk(gl.VERTEX_SHADER, vs)); gl.attachShader(p, mk(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    return p;
+  }
+  u(p, name) {
+    let m = this.uniCache.get(p); if (!m) { m = new Map(); this.uniCache.set(p, m); }
+    if (!m.has(name)) m.set(name, this.gl.getUniformLocation(p, name));
+    return m.get(name);
+  }
+
+  ensureTargets(w, h) {
+    const gl = this.gl;
+    if (this.fbo && w === this.fw && h === this.fh) return;
+    if (this.fbo) { gl.deleteFramebuffer(this.fbo); gl.deleteTexture(this.hdr); gl.deleteRenderbuffer(this.depthRb); }
+    this.fw = w; this.fh = h;
+    this.hdr = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.hdr);
+    this.hdrLevels = Math.min(6, Math.floor(Math.log2(Math.max(w, h))) + 1);
+    gl.texStorage2D(gl.TEXTURE_2D, this.hdrLevels, gl.RGBA16F, w, h);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    this.depthRb = gl.createRenderbuffer();
+    gl.bindRenderbuffer(gl.RENDERBUFFER, this.depthRb);
+    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, w, h);
+    this.fbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.hdr, 0);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.depthRb);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
+  // ---- splat the fluid particles into the density volume ------------------------------
+  buildVolume(sim) {
+    const { pos, alive, nbSmooth, N } = sim;
+    const s = sim.s, r = 1.75 * s, r2 = r * r;
+    // Laplacian-smoothed particle centres (Yu & Turk 2013): removes the "bag of marbles" surface
+    const SP = this.smoothPos && this.smoothPos.length === N * 3 ? this.smoothPos : (this.smoothPos = new Float32Array(N * 3));
+    {
+      const acc = this.smAcc && this.smAcc.length === N * 4 ? this.smAcc : (this.smAcc = new Float32Array(N * 4));
+      acc.fill(0);
+      for (let i = 0; i < N; i++) { acc[i * 4] = pos[i * 3]; acc[i * 4 + 1] = pos[i * 3 + 1]; acc[i * 4 + 2] = pos[i * 3 + 2]; acc[i * 4 + 3] = 1; }
+      const { pa, pb, pq, npairs } = sim;
+      for (let k = 0; k < npairs; k++) {
+        const w0 = 1 - pq[k]; if (w0 <= 0) continue; const w = w0 * w0 * w0;
+        const a = pa[k], b = pb[k];
+        acc[a * 4] += w * pos[b * 3]; acc[a * 4 + 1] += w * pos[b * 3 + 1]; acc[a * 4 + 2] += w * pos[b * 3 + 2]; acc[a * 4 + 3] += w;
+        acc[b * 4] += w * pos[a * 3]; acc[b * 4 + 1] += w * pos[a * 3 + 1]; acc[b * 4 + 2] += w * pos[a * 3 + 2]; acc[b * 4 + 3] += w;
+      }
+      const lam = 0.85;
+      for (let i = 0; i < N; i++) {
+        const iw = 1 / acc[i * 4 + 3];
+        for (let c = 0; c < 3; c++) SP[i * 3 + c] = (1 - lam) * pos[i * 3 + c] + lam * acc[i * 4 + c] * iw;
+      }
+    }
+    // anisotropic kernels (Yu & Turk 2013): stretch each particle's kernel along the local sheet,
+    // squash it along the surface normal -> flat, glassy surfaces and thin sheets instead of blobs
+    const AN = this.aniso && this.aniso.length === N * 9 ? this.aniso : (this.aniso = new Float32Array(N * 9));
+    const AF = this.anisoF && this.anisoF.length === N ? this.anisoF : (this.anisoF = new Float32Array(N));
+    {
+      const cov = this.covAcc && this.covAcc.length === N * 10 ? this.covAcc : (this.covAcc = new Float32Array(N * 10));
+      cov.fill(0);
+      const { pa, pb, pq, npairs } = sim;
+      const cnt = this.covCnt && this.covCnt.length === N ? this.covCnt : (this.covCnt = new Uint16Array(N));
+      cnt.fill(0);
+      for (let k = 0; k < npairs; k++) {
+        const q = pq[k]; if (q >= 1) continue;
+        const w = 1 - q * q * q;
+        const a = pa[k], b = pb[k];
+        const dx = pos[b * 3] - pos[a * 3], dy = pos[b * 3 + 1] - pos[a * 3 + 1], dz = pos[b * 3 + 2] - pos[a * 3 + 2];
+        // covariance about the particle itself (weighted second moment); symmetric for both ends
+        for (let e = 0; e < 2; e++) {
+          const i = e ? b : a, sg = e ? -1 : 1, o = i * 10;
+          cov[o] += w * dx * dx; cov[o + 1] += w * dx * dy; cov[o + 2] += w * dx * dz;
+          cov[o + 3] += w * dy * dy; cov[o + 4] += w * dy * dz; cov[o + 5] += w * dz * dz; cov[o + 6] += w;
+          cov[o + 7] += sg * w * dx; cov[o + 8] += sg * w * dy; cov[o + 9] += sg * w * dz;
+          cnt[i]++;
+        }
+      }
+      const A = new Float64Array(9), V = new Float64Array(9);
+      for (let i = 0; i < N; i++) {
+        const o = i * 10, m = i * 9;
+        const c = cnt[i];
+        // blend toward isotropic for sparse neighbourhoods (drops, thin ligaments)
+        const tAn = this.noAniso ? 0 : Math.max(0, Math.min(1, (c - 6) / 10));
+        if (tAn <= 0 || cov[o + 6] <= 0) { AN.fill(0, m, m + 9); AN[m] = AN[m + 4] = AN[m + 8] = 1; AF[i] = 1; continue; }
+        const iw = 1 / cov[o + 6];
+        const mx = cov[o + 7] * iw, my = cov[o + 8] * iw, mz = cov[o + 9] * iw;   // central covariance
+        A[0] = cov[o] * iw - mx * mx; A[1] = cov[o + 1] * iw - mx * my; A[2] = cov[o + 2] * iw - mx * mz;
+        A[3] = A[1]; A[4] = cov[o + 3] * iw - my * my; A[5] = cov[o + 4] * iw - my * mz;
+        A[6] = A[2]; A[7] = A[5]; A[8] = cov[o + 5] * iw - mz * mz;
+        V.fill(0); V[0] = V[4] = V[8] = 1;
+        // cyclic Jacobi eigen-decomposition of the 3x3 symmetric matrix
+        for (let sweep = 0; sweep < 6; sweep++) {
+          for (const [p, q] of [[0, 1], [0, 2], [1, 2]]) {
+            const apq = A[p * 3 + q];
+            if (Math.abs(apq) < 1e-14) continue;
+            const app = A[p * 3 + p], aqq = A[q * 3 + q];
+            const th = (aqq - app) / (2 * apq);
+            const t = Math.sign(th || 1) / (Math.abs(th) + Math.sqrt(th * th + 1));
+            const cs = 1 / Math.sqrt(t * t + 1), sn = t * cs;
+            for (let k = 0; k < 3; k++) {
+              const akp = A[k * 3 + p], akq = A[k * 3 + q];
+              A[k * 3 + p] = cs * akp - sn * akq; A[k * 3 + q] = sn * akp + cs * akq;
+            }
+            for (let k = 0; k < 3; k++) {
+              const apk = A[p * 3 + k], aqk = A[q * 3 + k];
+              A[p * 3 + k] = cs * apk - sn * aqk; A[q * 3 + k] = sn * apk + cs * aqk;
+            }
+            for (let k = 0; k < 3; k++) {
+              const vkp = V[k * 3 + p], vkq = V[k * 3 + q];
+              V[k * 3 + p] = cs * vkp - sn * vkq; V[k * 3 + q] = sn * vkp + cs * vkq;
+            }
+          }
+        }
+        let l0 = Math.max(A[0], 1e-12), l1 = Math.max(A[4], 1e-12), l2 = Math.max(A[8], 1e-12);
+        const lmax = Math.max(l0, l1, l2);
+        // clamp anisotropy (Yu-Turk k_r = 4 on sigma)
+        const lmin = lmax / 16;
+        l0 = Math.max(l0, lmin); l1 = Math.max(l1, lmin); l2 = Math.max(l2, lmin);
+        let f0 = Math.sqrt(l0), f1 = Math.sqrt(l1), f2 = Math.sqrt(l2);
+        const g = Math.cbrt(f0 * f1 * f2);
+        f0 /= g; f1 /= g; f2 /= g;                     // volume-preserving stretch factors
+        f0 = 1 + (f0 - 1) * tAn; f1 = 1 + (f1 - 1) * tAn; f2 = 1 + (f2 - 1) * tAn;
+        // inverse transform G = R diag(1/f) R^T (rows of V^T scaled)
+        const fi = [1 / f0, 1 / f1, 1 / f2];
+        for (let r0 = 0; r0 < 3; r0++)
+          for (let c0 = 0; c0 < 3; c0++) {
+            let sum = 0;
+            for (let k = 0; k < 3; k++) sum += V[r0 * 3 + k] * fi[k] * V[c0 * 3 + k];
+            AN[m + r0 * 3 + c0] = sum;
+          }
+        AF[i] = Math.max(f0, f1, f2);
+      }
+    }
+    // robust bounds of the coherent water (ignore stray clumps)
+    const xs = [], ys = [], zs = [];
+    for (let i = 0; i < N; i++) if (alive[i] && nbSmooth[i] >= 7) { xs.push(pos[i * 3]); ys.push(pos[i * 3 + 1]); zs.push(pos[i * 3 + 2]); }
+    const sprites = this.looseParticles || (this.looseParticles = []);
+    sprites.length = 0;
+    if (xs.length < 8) {
+      this.grid = { has: false };
+      for (let i = 0; i < N; i++) if (alive[i]) sprites.push(i);
+      return;
+    }
+    const pct = (a, f) => { a.sort((u, v) => u - v); return a[Math.min(a.length - 1, Math.max(0, Math.floor(f * (a.length - 1))))]; };
+    // full extent of the coherent water when it fits the texture at a sane resolution;
+    // only fall back to trimming outliers when a stray clump would blow up the voxel size
+    const maxExt = (TEX_MAX - 12) * 1.0 * s;
+    let lo = [pct(xs, 0), pct(ys, 0), pct(zs, 0)], hi = [pct(xs, 1), pct(ys, 1), pct(zs, 1)];
+    for (const f of [0.002, 0.006, 0.015]) {
+      if (Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]) <= maxExt) break;
+      lo = [pct(xs, f), pct(ys, f), pct(zs, f)]; hi = [pct(xs, 1 - f), pct(ys, 1 - f), pct(zs, 1 - f)];
+    }
+    const center = [xs[xs.length >> 1], ys[ys.length >> 1], zs[zs.length >> 1]];
+    for (let a = 0; a < 3; a++) { lo[a] -= 2.5 * s; hi[a] += 2.5 * s; }
+    const ext = [hi[0] - lo[0] + 2 * r, hi[1] - lo[1] + 2 * r, hi[2] - lo[2] + 2 * r];
+    let vox = Math.max(0.5 * s, Math.cbrt((ext[0] * ext[1] * ext[2]) / 420000));
+    vox = Math.max(vox, Math.max(ext[0], ext[1], ext[2]) / (TEX_MAX - 3));
+    const dims = ext.map((e) => Math.min(TEX_MAX, Math.ceil(e / vox) + 3));
+    const org = [lo[0] - r - vox, lo[1] - r - vox, lo[2] - r - vox];
+    const nx = dims[0], ny = dims[1], nz = dims[2];
+    const D = this.densData;
+    D.fill(0, 0, nx * ny * nz);
+    const inv = 1 / vox;
+    for (let i = 0; i < N; i++) {
+      if (!alive[i]) continue;
+      const px = SP[i * 3], py = SP[i * 3 + 1], pz = SP[i * 3 + 2];
+      if (px < lo[0] || px > hi[0] || py < lo[1] || py > hi[1] || pz < lo[2] || pz > hi[2]) { sprites.push(i); continue; }
+      const fx = (px - org[0]) * inv - 0.5, fy = (py - org[1]) * inv - 0.5, fz = (pz - org[2]) * inv - 0.5;
+      const m = i * 9;
+      const g00 = AN[m], g01 = AN[m + 1], g02 = AN[m + 2], g11 = AN[m + 4], g12 = AN[m + 5], g22 = AN[m + 8];
+      // axis-aligned half-extents of the ellipsoid: r*sqrt(diag(S^2)), S = G^-1 (via adjugate)
+      const c00 = g11 * g22 - g12 * g12, c01 = g02 * g12 - g01 * g22, c02 = g01 * g12 - g02 * g11;
+      const c11 = g00 * g22 - g02 * g02, c12 = g01 * g02 - g00 * g12, c22 = g00 * g11 - g01 * g01;
+      const det = g00 * c00 + g01 * c01 + g02 * c02, idt = 1 / det;
+      const ex = r * inv * Math.sqrt((c00 * c00 + c01 * c01 + c02 * c02)) * Math.abs(idt);
+      const ey = r * inv * Math.sqrt((c01 * c01 + c11 * c11 + c12 * c12)) * Math.abs(idt);
+      const ez = r * inv * Math.sqrt((c02 * c02 + c12 * c12 + c22 * c22)) * Math.abs(idt);
+      const x0 = Math.max(0, Math.ceil(fx - ex)), x1 = Math.min(nx - 1, Math.floor(fx + ex));
+      const y0 = Math.max(0, Math.ceil(fy - ey)), y1 = Math.min(ny - 1, Math.floor(fy + ey));
+      const z0 = Math.max(0, Math.ceil(fz - ez)), z1 = Math.min(nz - 1, Math.floor(fz + ez));
+      const qa = (g00 * g00 + g01 * g01 + g02 * g02) * vox * vox;
+      for (let z = z0; z <= z1; z++) {
+        const dz = (z - fz) * vox;
+        for (let y = y0; y <= y1; y++) {
+          const dy = (y - fy) * vox;
+          const uy = g01 * dy + g02 * dz, vy = g11 * dy + g12 * dz, wy = g12 * dy + g22 * dz;
+          // solve the quadratic in x for the exact span of the row inside the ellipsoid
+          const qb = 2 * (g00 * uy + g01 * vy + g02 * wy) * vox, qc = uy * uy + vy * vy + wy * wy - r2;
+          const disc = qb * qb - 4 * qa * qc;
+          if (disc <= 0) continue;
+          const sq = Math.sqrt(disc), t0 = (-qb - sq) / (2 * qa), t1 = (-qb + sq) / (2 * qa);
+          const xa = Math.max(x0, Math.ceil(fx + t0)), xb = Math.min(x1, Math.floor(fx + t1));
+          const row = (z * ny + y) * nx;
+          for (let x = xa; x <= xb; x++) {
+            const dx = (x - fx) * vox;
+            const u = g00 * dx + uy, v = g01 * dx + vy, w_ = g02 * dx + wy;
+            const d2 = u * u + v * v + w_ * w_;
+            if (d2 < r2) { const w = 1 - d2 / r2; D[row + x] += w * w * w; }
+          }
+        }
+      }
+    }
+    // separable [1 2 1] smoothing: removes particle-lattice bumps from the surface normals
+    {
+      const n = nx * ny * nz;
+      const T = this.densTmp && this.densTmp.length >= n ? this.densTmp : (this.densTmp = new Float32Array(D.length));
+      const pass = (src, dst, stride, len, idxOf) => {
+        for (let i = 0; i < n; i++) {
+          const c = idxOf(i);
+          const a = c > 0 ? src[i - stride] : 0, b = c < len - 1 ? src[i + stride] : 0;
+          dst[i] = 0.25 * a + 0.5 * src[i] + 0.25 * b;
+        }
+      };
+      pass(D, T, 1, nx, (i) => i % nx);
+      pass(T, D, nx, ny, (i) => ((i / nx) | 0) % ny);
+      pass(D, T, nx * ny, nz, (i) => (i / (nx * ny)) | 0);
+      D.set(T.subarray(0, n));
+    }
+    // foam: coarse isotropic splat of the bubble fraction (normalised by the local water amount)
+    {
+      const fx2 = Math.ceil(nx / 2), fy2 = Math.ceil(ny / 2), fz2 = Math.ceil(nz / 2);
+      const Fd = this.foamData, W = this.foamW && this.foamW.length === Fd.length ? this.foamW : (this.foamW = new Float32Array(Fd.length));
+      Fd.fill(0, 0, fx2 * fy2 * fz2); W.fill(0, 0, fx2 * fy2 * fz2);
+      const fv = 2 * vox, finv = 1 / fv, fr = 2.2 * s, fr2 = fr * fr, fk = fr * finv;
+      const foam = sim.foam;
+      let any = false;
+      for (let i = 0; i < N; i++) {
+        if (!alive[i]) continue;
+        const f = foam ? foam[i] : 0;
+        const px = SP[i * 3], py = SP[i * 3 + 1], pz = SP[i * 3 + 2];
+        if (px < lo[0] || px > hi[0] || py < lo[1] || py > hi[1] || pz < lo[2] || pz > hi[2]) continue;
+        if (f > 0.01) any = true;
+        const gx = (px - org[0]) * finv - 0.5, gy = (py - org[1]) * finv - 0.5, gz = (pz - org[2]) * finv - 0.5;
+        const x0 = Math.max(0, Math.ceil(gx - fk)), x1 = Math.min(fx2 - 1, Math.floor(gx + fk));
+        const y0 = Math.max(0, Math.ceil(gy - fk)), y1 = Math.min(fy2 - 1, Math.floor(gy + fk));
+        const z0 = Math.max(0, Math.ceil(gz - fk)), z1 = Math.min(fz2 - 1, Math.floor(gz + fk));
+        for (let z = z0; z <= z1; z++) for (let y = y0; y <= y1; y++) {
+          const dyz = ((y - gy) ** 2 + (z - gz) ** 2) * fv * fv; if (dyz >= fr2) continue;
+          const row = (z * fy2 + y) * fx2;
+          for (let x = x0; x <= x1; x++) {
+            const d2 = dyz + (x - gx) * (x - gx) * fv * fv;
+            if (d2 < fr2) { const w = 1 - d2 / fr2; Fd[row + x] += w * f; W[row + x] += w; }
+          }
+        }
+      }
+      for (let k = 0, n2 = fx2 * fy2 * fz2; k < n2; k++) Fd[k] = W[k] > 0.05 ? Fd[k] / W[k] : 0;
+      this.hasFoam = any;
+      const gl = this.gl;
+      gl.bindTexture(gl.TEXTURE_3D, this.foamTex);
+      gl.texSubImage3D(gl.TEXTURE_3D, 0, 0, 0, 0, fx2, fy2, fz2, gl.RED, gl.FLOAT, Fd.subarray(0, fx2 * fy2 * fz2));
+    }
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_3D, this.dens);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texSubImage3D(gl.TEXTURE_3D, 0, 0, 0, 0, nx, ny, nz, gl.RED, gl.FLOAT, D.subarray(0, nx * ny * nz));
+    this.grid = {
+      has: true, vox, org, dims, kr: r, center,
+      boxMin: [org[0] + vox, org[1] + vox, org[2] + vox],
+      boxMax: [org[0] + (nx - 1) * vox, org[1] + (ny - 1) * vox, org[2] + (nz - 1) * vox],
+    };
+  }
+
+  uploadWet(sim) {
+    if (!sim.wetDirty) return;
+    const gl = this.gl;
+    // surface tension levels a thin film: blur the deposited water before shading it
+    const n = WET_RES, A = this.wetA || (this.wetA = new Float32Array(n * n)), B = this.wetB || (this.wetB = new Float32Array(n * n));
+    const k = [1, 4, 6, 4, 1];
+    const src = sim.wet;
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+      let a = 0, ws = 0;
+      for (let t = -2; t <= 2; t++) { const x = i + t; if (x < 0 || x >= n) continue; a += src[j * n + x] * k[t + 2]; ws += k[t + 2]; }
+      A[j * n + i] = a / ws;
+    }
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+      let a = 0, ws = 0;
+      for (let t = -2; t <= 2; t++) { const y = j + t; if (y < 0 || y >= n) continue; a += A[y * n + i] * k[t + 2]; ws += k[t + 2]; }
+      B[j * n + i] = a / ws;
+    }
+    gl.bindTexture(gl.TEXTURE_2D, this.wetTex);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, WET_RES, WET_RES, gl.RED, gl.FLOAT, B);
+    sim.wetDirty = false;
+  }
+
+  buildSprites(sim) {
+    const S = this.spriteData;
+    let n = 0;
+    const put = (x, y, z, r, type, a, age) => {
+      if (n >= this.spriteCap) return;
+      const o = n * 8;
+      S[o] = x; S[o + 1] = y; S[o + 2] = z; S[o + 3] = r; S[o + 4] = type; S[o + 5] = a; S[o + 6] = age; S[o + 7] = 0;
+      n++;
+    };
+    // loose fluid parcels (outside the volume)
+    const rr = 0.62 * sim.s;
+    for (const i of this.looseParticles || []) put(sim.pos[i * 3], sim.pos[i * 3 + 1], sim.pos[i * 3 + 2], rr, 0, 1, 0);
+    const f = sim.fx;
+    let nd = n;
+    for (let i = 0; i < f.alive.length; i++) {
+      if (!f.alive[i] || f.type[i] !== 0) continue;
+      put(f.pos[i * 3], f.pos[i * 3 + 1], f.pos[i * 3 + 2], f.size[i], 0, 1, f.age[i]);
+    }
+    this.nDrops = n;
+    for (let i = 0; i < f.alive.length; i++) {
+      if (!f.alive[i] || f.type[i] !== 1) continue;
+      const age = f.age[i], life = f.life[i];
+      const fade = Math.min(1, age / 0.004) * Math.pow(Math.max(0, 1 - age / life), 1.6);
+      put(f.pos[i * 3], f.pos[i * 3 + 1], f.pos[i * 3 + 2], f.size[i], 1, 0.13 * fade * Math.min(1.5, sim.p.mist || 0), age);
+    }
+    this.nSprites = n;
+    const gl = this.gl;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.instBuf);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, S.subarray(0, n * 8));
+  }
+
+  setCommon(p, V) {
+    const gl = this.gl;
+    const U = (n) => this.u(p, n);
+    gl.uniform3fv(U('uCamPos'), V.cam.pos); gl.uniform3fv(U('uCamRight'), V.cam.right);
+    gl.uniform3fv(U('uCamUp'), V.cam.up); gl.uniform3fv(U('uCamFwd'), V.cam.fwd);
+    gl.uniform1f(U('uTanHalf'), V.cam.tanHalf); gl.uniform1f(U('uAspect'), V.cam.aspect);
+    gl.uniformMatrix4fv(U('uViewProj'), false, V.cam.viewProj);
+    gl.uniform3fv(U('uL'), V.light.L); gl.uniform1f(U('uLInt'), V.light.I);
+    gl.uniform3fv(U('uFillDir'), V.light.fill);
+    gl.uniform3fv(U('uKeyC'), V.light.keyC); gl.uniform3fv(U('uKeyU'), V.light.keyU); gl.uniform3fv(U('uKeyV'), V.light.keyV);
+    gl.uniform2fv(U('uKeyHalf'), V.light.keyHalf);
+    gl.uniform3fv(U('uFillC'), V.light.fillC); gl.uniform3fv(U('uFillU'), V.light.fillU); gl.uniform3fv(U('uFillV'), V.light.fillV);
+    gl.uniform3fv(U('uFocus'), V.focus);
+    gl.uniform1f(U('uWetExt'), WET_EXT);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.wetTex); gl.uniform1i(U('uWet'), 1);
+  }
+
+  render(sim, V, scale) {
+    const gl = this.gl, c = this.canvas;
+    const w = Math.max(64, Math.round(c.width * scale)), h = Math.max(64, Math.round(c.height * scale));
+    this.ensureTargets(w, h);
+    this.uploadWet(sim);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
+    gl.viewport(0, 0, w, h);
+    // ---- pass 1: ray trace
+    gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.ALWAYS); gl.depthMask(true);
+    gl.disable(gl.BLEND);
+    const p = this.progTrace;
+    gl.useProgram(p);
+    this.setCommon(p, V);
+    const U = (n) => this.u(p, n);
+    const G = this.grid;
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_3D, this.dens); gl.uniform1i(U('uDens'), 0);
+    gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_3D, this.foamTex); gl.uniform1i(U('uFoam'), 5); gl.uniform1f(U('uFoamOn'), this.hasFoam ? 1 : 0);
+    { const G = this.grid, m = sim.mem, age = m && m.tIn >= 0 ? sim.t - m.tIn : -1;
+      gl.uniform3fv(U('uBlobC'), G && G.center ? G.center : sim.C);
+      gl.uniform1f(U('uRip'), age > 0.002 ? 0.4 * Math.exp(-(age - 0.002) / 0.12) + 0.22 : 0); } gl.activeTexture(gl.TEXTURE0);
+    gl.uniform1f(U('uHasWater'), G.has ? 1 : 0);
+    if (G.has) {
+      gl.uniform3fv(U('uGridMin'), G.org);
+      gl.uniform3f(U('uTexWorld'), TEX_MAX * G.vox, TEX_MAX * G.vox, TEX_MAX * G.vox);
+      gl.uniform3fv(U('uBoxMin'), G.boxMin); gl.uniform3fv(U('uBoxMax'), G.boxMax);
+      gl.uniform1f(U('uVoxel'), G.vox); gl.uniform1f(U('uKR'), G.kr);
+    }
+    gl.uniform1f(U('uIso'), 0.56); gl.uniform1i(U('uDbg'), this.dbg|0); gl.uniform1f(U('uPixA'), 2 * V.cam.tanHalf / h);
+    gl.uniform1f(U('uAerate'), V.aerate);
+    const b = sim.bullet;
+    gl.uniform3f(U('uBulletTip'), b.x, b.y, b.z);
+    gl.uniform1f(U('uBulletR'), b.r); gl.uniform1f(U('uBulletLen'), b.len);
+    gl.uniform1f(U('uBulletOn'), b.x - b.len < 4 ? 1 : 0);
+    const m = sim.mem;
+    gl.uniform3fv(U('uMemC'), sim.C); gl.uniform1f(U('uMemR'), sim.R); gl.uniform1f(U('uMemRy'), sim.ry);
+    gl.uniform1f(U('uMemOn'), m.gone ? 0 : 1);
+    gl.uniform3fv(U('uE1'), sim.e1); gl.uniform3fv(U('uE2'), sim.e2);
+    gl.uniform1f(U('uTh1'), m.tIn >= 0 ? m.th1 : -1); gl.uniform1f(U('uTh2'), m.tOut >= 0 ? m.th2 : -1);
+    gl.uniform1f(U('uAlpha'), m.alpha);
+    gl.uniform3fv(U('uLatex'), V.latex);
+    const rem = m.tIn >= 0 ? Math.min(1, Math.max(0, (sim.t - m.tIn - 0.002) / 0.006)) : 0;
+    gl.uniform1f(U('uRemnant'), rem);
+    gl.uniform1f(U('uStringTop'), sim.C[1] + 3.0);
+    gl.bindVertexArray(this.vaoFull);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+    // ---- pass 2: spray + mist
+    if (this.nSprites > 0 && this.dbg !== 5) {
+      const ps = this.progSprite;
+      gl.useProgram(ps);
+      this.setCommon(ps, V);
+      gl.uniform1f(this.u(ps, 'uPixelWorld'), (2 * V.cam.tanHalf) / h);
+      gl.depthFunc(gl.LESS);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      gl.bindVertexArray(this.vaoSprite);
+      gl.depthMask(true);
+      gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, this.nDrops);
+      gl.depthMask(false);
+      if (this.nSprites > this.nDrops) {
+        // mist instances live after the drops in the buffer
+        const off = this.nDrops * 32;
+        const la = gl.getAttribLocation(ps, 'aPS'), li = gl.getAttribLocation(ps, 'aInfo');
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.instBuf);
+        gl.vertexAttribPointer(la, 4, gl.FLOAT, false, 32, off);
+        gl.vertexAttribPointer(li, 4, gl.FLOAT, false, 32, off + 16);
+        gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, this.nSprites - this.nDrops);
+        gl.vertexAttribPointer(la, 4, gl.FLOAT, false, 32, 0);
+        gl.vertexAttribPointer(li, 4, gl.FLOAT, false, 32, 16);
+      }
+      gl.depthMask(true);
+      gl.disable(gl.BLEND);
+    }
+    // ---- pass 3: tone map to screen
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, c.width, c.height);
+    gl.disable(gl.DEPTH_TEST);
+    const pc = this.progComp;
+    gl.useProgram(pc);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.hdr); gl.generateMipmap(gl.TEXTURE_2D);
+    gl.uniform1i(this.u(pc, 'uHdr'), 0);
+    gl.uniform1f(this.u(pc, 'uExposure'), V.exposure);
+    gl.uniform2f(this.u(pc, 'uRes'), w, h);
+    gl.uniform1f(this.u(pc, 'uSeed'), (this.frame++ % 64) * 0.37);
+    gl.bindVertexArray(this.vaoFull);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    gl.bindVertexArray(null);
+  }
+}
+
+
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const canvas = $('view'), stage = $('stage');
+  let R;
+  try { R = new Renderer(canvas); }
+  catch (e) { $('err').style.display = 'flex'; $('err').textContent = 'This view needs WebGL 2. ' + e.message.split('\n')[0]; console.error(e); return; }
+
+  // ---------------------------------------------------------------- parameters
+  const LATEX = {
+    red: [0.62, 0.035, 0.03], blue: [0.03, 0.16, 0.62], yellow: [0.78, 0.5, 0.02], green: [0.06, 0.42, 0.09], pink: [0.8, 0.18, 0.38],
+  };
+  const P = { speed: 360, caliber: 9, offset: 0, energy: 1, radius: 0.08, height: 1, snap: 30, gravity: 9.81, cavity: 0.5, mist: 1, count: 6000, seed: 1337 };
+  const L = { az: -55, el: 38, I: 1, exposure: 1.1, scale: 0.7, color: 'red' };
+  const S = { playing: true, slowLog: 3.38, ramp: true, follow: true };
+
+  const fmt = {
+    speed: (v) => `${v} m/s`, caliber: (v) => `${(+v).toFixed(1)} mm`, offset: (v) => (+v === 0 ? 'centre' : `${v > 0 ? '+' : '−'}${Math.round(Math.abs(v) * 100)}% of radius`),
+    energy: (v) => `Cd ${(0.3 * v).toFixed(2)}`, radius: (v) => `${Math.round(v * 200)} cm`, height: (v) => `${(+v).toFixed(2)} m`, snap: (v) => `${v} m/s`,
+    gravity: (v) => `${(+v).toFixed(2)} m/s²`, cavity: (v) => `${Math.round(v * 100)}%`, mist: (v) => `${Math.round(v * 100)}%`, count: (v) => `${v}`,
+    laz: (v) => `${v}°`, lel: (v) => `${v}°`, lint: (v) => `${(+v).toFixed(2)}×`, expo: (v) => `${(+v).toFixed(2)}`, scale: (v) => `${Math.round(v * 100)}%`,
+    slow: (v) => `${Math.round(Math.pow(10, v)).toLocaleString()}×`,
+  };
+
+  // ---------------------------------------------------------------- simulation + time
+  let sim, snaps, tEnd, seekT = null;
+  function restart() {
+    sim = new BalloonSim(Object.assign({}, P));
+    snaps = [sim.snapshot()];
+    tEnd = sim.tImpact + Math.sqrt((2 * Math.max(0.2, P.height)) / Math.max(1, P.gravity)) + 0.55;
+    $('tEndLabel').textContent = `${(tEnd * 1000 - sim.tImpact * 1000).toFixed(0)} ms`;
+    seekT = null;
+    camTarget = [sim.C[0], sim.C[1], sim.C[2]];
+    headline();
+    dirty = true;
+  }
+  function headline() {
+    const c = +P.caliber;
+    const name = Math.abs(c - 9) < 0.15 ? '9 mm round' : Math.abs(c - 5.56) < 0.2 ? '5.56 mm round' : Math.abs(c - 7.62) < 0.2 ? '7.62 mm round' : Math.abs(c - 5.6) < 0.2 ? '.22 round' : `${c.toFixed(1)} mm round`;
+    $('headline').textContent = `Water balloon, ${name} at ${P.speed} m/s`;
+  }
+  function snapInterval(t) { const a = t - sim.tImpact; return a < 0.006 ? 0.0005 : a < 0.06 ? 0.004 : 0.02; }
+  function maybeSnap() {
+    const last = snaps[snaps.length - 1];
+    if (sim.t >= last.t + snapInterval(last.t)) snaps.push(sim.snapshot());
+  }
+  function rate() {
+    const base = 1 / Math.pow(10, S.slowLog);
+    if (!S.ramp) return base;
+    const after = Math.max(0, sim.t - sim.tImpact);
+    return Math.min(base * (1 + after / 0.0009), Math.max(base, 1 / 25));
+  }
+  function stepTo(goal, budgetMs) {
+    const t0 = performance.now();
+    while (sim.t < goal - 1e-10 && performance.now() - t0 < budgetMs) {
+      let dt = sim.chooseDt();
+      if (sim.t + dt > goal) dt = Math.max(goal - sim.t, 1e-7);
+      sim.step(dt);
+      maybeSnap();
+    }
+    return sim.t >= goal - 1e-10;
+  }
+  function seek(T) {
+    T = Math.max(0, Math.min(tEnd, T));
+    seekT = T;
+    if (T < sim.t - 1e-9) {
+      let k = snaps.length - 1;
+      while (k > 0 && snaps[k].t > T + 1e-12) k--;
+      sim.restore(snaps[k]);
+    } else {
+      // jump forward from the nearest cached state if it is ahead of us
+      let k = snaps.length - 1;
+      while (k > 0 && snaps[k].t > T + 1e-12) k--;
+      if (snaps[k].t > sim.t) sim.restore(snaps[k]);
+    }
+    dirty = true;
+  }
+
+  // ---------------------------------------------------------------- camera
+  const cam = { yaw: 0.42, pitch: 0.1, dist: 0.62, fov: 34 };
+  let camTarget = [0, 1, 0];
+  const VIEWS = {
+    side: { yaw: 0.0, pitch: 0.05, dist: 0.62 }, barrel: { yaw: -Math.PI / 2 + 0.22, pitch: 0.12, dist: 0.7 },
+    above: { yaw: 0.3, pitch: 1.2, dist: 0.8 }, floor: { yaw: 0.55, pitch: 0.16, dist: 1.1 },
+    home: { yaw: 0.42, pitch: 0.1, dist: 0.62 },
+  };
+  function setView(v) { Object.assign(cam, VIEWS[v]); S.floorCam = v === 'floor'; if (S.floorCam) camTarget = [sim.C[0] + 0.1, 0.16, sim.C[2]]; S.follow = true; $('follow').checked = true; dirty = true; }
+  function norm(v) { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; }
+  function cross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
+  function camera(w, h) {
+    const cp = Math.cos(cam.pitch);
+    const pos = [camTarget[0] + cam.dist * cp * Math.sin(cam.yaw), camTarget[1] + cam.dist * Math.sin(cam.pitch), camTarget[2] + cam.dist * cp * Math.cos(cam.yaw)];
+    if (pos[1] < 0.02) pos[1] = 0.02;
+    const fwd = norm([camTarget[0] - pos[0], camTarget[1] - pos[1], camTarget[2] - pos[2]]);
+    const right = norm(cross(fwd, [0, 1, 0]));
+    const up = cross(right, fwd);
+    const aspect = w / h, tanHalf = Math.tan((cam.fov * Math.PI) / 360);
+    const n = 0.01, f = 50;
+    // view-projection (column-major)
+    const V = [right[0], up[0], -fwd[0], 0, right[1], up[1], -fwd[1], 0, right[2], up[2], -fwd[2], 0,
+      -(right[0] * pos[0] + right[1] * pos[1] + right[2] * pos[2]), -(up[0] * pos[0] + up[1] * pos[1] + up[2] * pos[2]), fwd[0] * pos[0] + fwd[1] * pos[1] + fwd[2] * pos[2], 1];
+    const fy = 1 / tanHalf, fx = fy / aspect;
+    const Pm = [fx, 0, 0, 0, 0, fy, 0, 0, 0, 0, (f + n) / (n - f), -1, 0, 0, (2 * f * n) / (n - f), 0];
+    const M = new Float32Array(16);
+    for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { let s = 0; for (let k = 0; k < 4; k++) s += Pm[k * 4 + r] * V[c * 4 + k]; M[c * 4 + r] = s; }
+    return { pos, fwd, right, up, aspect, tanHalf, viewProj: M };
+  }
+  function lighting() {
+    const az = (L.az * Math.PI) / 180, el = (L.el * Math.PI) / 180;
+    const Ld = [Math.cos(el) * Math.sin(az), Math.sin(el), Math.cos(el) * Math.cos(az)];
+    const C = sim.C;
+    const keyC = [C[0] + Ld[0] * 2.8, C[1] + Ld[1] * 2.8, C[2] + Ld[2] * 2.8];
+    const keyU = norm(cross(Ld, [0, 1, 0])), keyV = cross(keyU, Ld);
+    const faz = az + 2.6, fel = 0.35;
+    const F = [Math.cos(fel) * Math.sin(faz), Math.sin(fel), Math.cos(fel) * Math.cos(faz)];
+    const fillC = [C[0] + F[0] * 2.4, C[1] + F[1] * 2.4, C[2] + F[2] * 2.4];
+    const fillU = norm(cross(F, [0, 1, 0])), fillV = cross(fillU, F);
+    return { L: Ld, I: L.I, fill: F, keyC, keyU, keyV, keyHalf: [0.55, 0.75], fillC, fillU, fillV };
+  }
+
+  // ---------------------------------------------------------------- input
+  const pointers = new Map();
+  let dragMode = null, lastPinch = 0;
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+  canvas.addEventListener('pointerdown', (e) => {
+    canvas.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    dragMode = e.button === 2 || e.shiftKey ? 'pan' : 'orbit';
+    if (pointers.size === 2) { const [a, b] = [...pointers.values()]; lastPinch = Math.hypot(a.x - b.x, a.y - b.y); dragMode = 'pinch'; }
+    canvas.classList.add('dragging');
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    const p = pointers.get(e.pointerId); if (!p) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY;
+    if (dragMode === 'pinch' && pointers.size === 2) {
+      const [a, b] = [...pointers.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (lastPinch > 0) cam.dist = Math.min(6, Math.max(0.12, cam.dist * (lastPinch / d)));
+      lastPinch = d;
+    } else if (dragMode === 'orbit') {
+      cam.yaw -= dx * 0.006; cam.pitch = Math.min(1.5, Math.max(-0.35, cam.pitch + dy * 0.005));
+    } else if (dragMode === 'pan') {
+      const c = camera(canvas.width, canvas.height);
+      const k = cam.dist * 0.0016;
+      for (let a = 0; a < 3; a++) camTarget[a] += (-dx * c.right[a] + dy * c.up[a]) * k;
+      S.follow = false; $('follow').checked = false;
+    }
+    dirty = true;
+  });
+  const endPtr = (e) => { pointers.delete(e.pointerId); if (pointers.size === 0) { dragMode = null; canvas.classList.remove('dragging'); } else if (pointers.size === 1) dragMode = 'orbit'; };
+  canvas.addEventListener('pointerup', endPtr); canvas.addEventListener('pointercancel', endPtr);
+  canvas.addEventListener('wheel', (e) => { e.preventDefault(); cam.dist = Math.min(6, Math.max(0.12, cam.dist * Math.exp(e.deltaY * 0.0012))); dirty = true; }, { passive: false });
+  canvas.addEventListener('dblclick', () => { setView('home'); S.follow = true; $('follow').checked = true; });
+
+  // ---------------------------------------------------------------- controls
+  const physIds = ['speed', 'caliber', 'offset', 'energy', 'radius', 'height', 'snap', 'gravity', 'cavity', 'mist', 'count'];
+  let restartTimer = null;
+  function bind(id, apply, isPhys) {
+    const el = $(id), out = $(id + 'O');
+    const show = () => { out.textContent = fmt[id](el.value); };
+    show();
+    el.addEventListener('input', () => {
+      show(); apply(+el.value);
+      if (isPhys) { clearTimeout(restartTimer); restartTimer = setTimeout(() => { restart(); setPlaying(true); }, 220); }
+      dirty = true;
+    });
+  }
+  for (const id of physIds) bind(id, (v) => { P[id] = v; }, true);
+  bind('laz', (v) => (L.az = v)); bind('lel', (v) => (L.el = v)); bind('lint', (v) => (L.I = v));
+  bind('expo', (v) => (L.exposure = v)); bind('scale', (v) => (L.scale = v));
+  bind('slow', (v) => (S.slowLog = v));
+  $('ramp').addEventListener('change', (e) => (S.ramp = e.target.checked));
+  $('follow').addEventListener('change', (e) => { S.follow = e.target.checked; dirty = true; });
+  const sw = $('swatches');
+  for (const k of Object.keys(LATEX)) {
+    const b = document.createElement('button');
+    b.className = 'swatch'; b.setAttribute('aria-label', k[0].toUpperCase() + k.slice(1)); b.setAttribute('aria-pressed', k === L.color);
+    const c = LATEX[k].map((v) => Math.round(Math.pow(Math.min(1, v * 1.35), 1 / 2.2) * 255));
+    b.style.background = `rgb(${c})`;
+    b.addEventListener('click', () => { L.color = k; for (const x of sw.children) x.setAttribute('aria-pressed', x === b); dirty = true; });
+    sw.appendChild(b);
+  }
+  document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
+  function setPlaying(on) {
+    S.playing = on;
+    $('playText').textContent = on ? 'Pause' : 'Play';
+    $('play').setAttribute('aria-label', on ? 'Pause' : 'Play');
+    $('playIcon').innerHTML = on ? '<rect x="3" y="2" width="3.5" height="12"/><rect x="9.5" y="2" width="3.5" height="12"/>' : '<path d="M4 2l10 6-10 6z"/>';
+  }
+  $('play').addEventListener('click', () => { if (!S.playing && sim.t >= tEnd - 1e-6) restart(); setPlaying(!S.playing); });
+  $('restart').addEventListener('click', () => { restart(); setPlaying(true); });
+  $('step').addEventListener('click', () => { setPlaying(false); seek(sim.t + rate() / 30); });
+  const scrub = $('scrub');
+  const K = 6;
+  const u2t = (u) => (tEnd * (Math.exp(K * u) - 1)) / (Math.exp(K) - 1);
+  const t2u = (t) => Math.log(1 + (t / tEnd) * (Math.exp(K) - 1)) / K;
+  scrub.addEventListener('input', () => { setPlaying(false); seek(u2t(scrub.value / 1000)); });
+  $('settingsBtn').addEventListener('click', () => { const o = $('panel').classList.toggle('open'); $('settingsBtn').setAttribute('aria-expanded', o); });
+  window.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' && e.target.type !== 'range' && e.target.type !== 'checkbox') return;
+    if (e.code === 'Space') { e.preventDefault(); $('play').click(); }
+    else if (e.code === 'ArrowRight' && e.target.type !== 'range') { e.preventDefault(); $('step').click(); }
+    else if (e.key === 'r' || e.key === 'R') { restart(); setPlaying(true); }
+  });
+
+  // ---------------------------------------------------------------- frame loop
+  let dirty = true, lastVersion = -1, lastNow = performance.now(), fpsAcc = 0, fpsN = 0, fps = 0;
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const r = stage.getBoundingClientRect();
+    const w = Math.max(2, Math.round(r.width * dpr)), h = Math.max(2, Math.round(r.height * dpr));
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; dirty = true; }
+  }
+  function phaseText() {
+    const m = sim.mem, a = sim.t - sim.tImpact;
+    if (a < 0) return 'Bullet approaching';
+    if (m.tOut < 0) return 'Bullet passing through the water';
+    if (!m.gone) return 'Rubber tearing away from the holes';
+    const grid = R.grid;
+    if (a < 0.04) return 'Water hangs in the air, cavity collapsing';
+    if (sim.vmaxBulk > 0.4 && grid.has && grid.center && grid.center[1] > 0.06) return 'Falling';
+    return 'Splashing onto the floor';
+  }
+  function updateHud() {
+    const a = (sim.t - sim.tImpact) * 1000;
+    const sign = a < 0 ? '−' : '+';
+    const digits = Math.abs(a) < 10 ? 3 : Math.abs(a) < 100 ? 2 : 1;
+    $('clock').innerHTML = `${sign}${Math.abs(a).toFixed(digits)}<small>ms</small>`;
+    const r = rate();
+    $('rate').textContent = S.playing ? `${Math.round(1 / r).toLocaleString()}× slower than real time` : 'Paused';
+    $('phase').textContent = phaseText();
+    if (document.activeElement !== scrub) scrub.value = Math.round(t2u(sim.t) * 1000);
+    let alive = 0; for (let i = 0; i < sim.N; i++) alive += sim.alive[i];
+    $('stats').textContent = `${alive} water parcels, ${sim.fx.n} spray and mist particles, ${fps.toFixed(0)} fps`;
+  }
+  function frame(now) {
+    const dtReal = Math.min(0.05, (now - lastNow) / 1000);
+    lastNow = now;
+    resize();
+    let busy = false;
+    if (seekT !== null) {
+      if (stepTo(seekT, 34)) seekT = null; else busy = true;
+    } else if (S.playing) {
+      stepTo(Math.min(tEnd, sim.t + rate() * dtReal), 26);
+      if (sim.t >= tEnd - 1e-6) setPlaying(false);
+    }
+    $('busy').style.display = busy ? 'block' : 'none';
+    if (sim.version !== lastVersion) {
+      R.buildVolume(sim); R.buildSprites(sim); lastVersion = sim.version; dirty = true;
+    }
+    // follow the bulk of the water
+    if (S.follow && R.grid.has && R.grid.center && sim.t > sim.tImpact) {
+      const k = seekT !== null || !S.playing ? 1 : Math.min(1, dtReal * 2.5);
+      const tgt = [R.grid.center[0], S.floorCam ? 0.16 : Math.max(R.grid.center[1], 0.1), R.grid.center[2]];
+      for (let a = 0; a < 3; a++) { const d = tgt[a] - camTarget[a]; if (Math.abs(d) > 1e-5) { camTarget[a] += d * k; dirty = true; } }
+    } else if (S.follow && sim.t <= sim.tImpact) {
+      for (let a = 0; a < 3; a++) camTarget[a] = sim.C[a];
+      if (S.floorCam) camTarget[1] = 0.16;
+    }
+    if (dirty) {
+      const c = camera(canvas.width, canvas.height);
+      const after = sim.t - sim.tImpact;
+      const aerate = after > 0 ? 0.03 * Math.min(1, after / 0.002) * Math.exp(-after / 0.25) * Math.min(2, P.energy * P.speed / 360) : 0;
+      R.render(sim, { cam: c, light: lighting(), exposure: L.exposure, latex: LATEX[L.color], focus: sim.C, aerate }, L.scale);
+      dirty = false;
+      fpsAcc += dtReal; fpsN++;
+      if (fpsAcc > 0.5) { fps = fpsN / fpsAcc; fpsAcc = 0; fpsN = 0; }
+    }
+    updateHud();
+    if (!halted) requestAnimationFrame(frame);
+  }
+  let halted = false;
+
+  // ---------------------------------------------------------------- test hooks (headless review)
+  window.WB = {
+    seekMs(ms) { setPlaying(false); seek(sim.tImpact + ms / 1000); return new Promise((res) => { const w = () => (seekT === null ? res(sim.t) : requestAnimationFrame(w)); w(); }); },
+    view(v, extra) { setView(v); if (extra) Object.assign(cam, extra); dirty = true; },
+    set(k, v) { if (k in P) { P[k] = v; restart(); setPlaying(false); } else if (k in L) L[k] = v; dirty = true; },
+    follow(on) { S.follow = on; },
+    halt() { halted = true; },
+    // synchronous: reach time, build, render (for headless review)
+    shot(ms) {
+      setPlaying(false);
+      seek(sim.tImpact + ms / 1000);
+      while (!stepTo(seekT, 1e9)) {}
+      seekT = null;
+      R.buildVolume(sim); R.buildSprites(sim); lastVersion = sim.version;
+      if (S.follow && R.grid.has && sim.t > sim.tImpact) camTarget = [R.grid.center[0], S.floorCam ? 0.16 : Math.max(R.grid.center[1], 0.1), R.grid.center[2]];
+      else if (S.follow) { camTarget = sim.C.slice(); if (S.floorCam) camTarget[1] = 0.16; }
+      dirty = true; lastNow = performance.now(); frame(performance.now());
+      const t0 = performance.now(); R.gl.finish(); return performance.now() - t0;
+    },
+    get sim() { return sim; }, get R() { return R; }, cam, camTarget: () => camTarget,
+  };
+
+  restart();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
